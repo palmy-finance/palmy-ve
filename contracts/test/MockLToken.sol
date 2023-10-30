@@ -5,8 +5,8 @@ import { WadRayMath } from "./libraries/WadRayMath.sol";
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 /**
- * @title OasysLend ERC20 LToken
- * @dev Implementation of the interest bearing token for the OasysLend protocol
+ * @title Palmy ERC20 LToken
+ * @dev Implementation of the interest bearing token for the Palmy protocol
  * @author HorizonX.tech
  */
 contract MockLToken {

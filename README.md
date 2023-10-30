@@ -1,6 +1,6 @@
-# oasyslend-ve
+# palmy-ve
 
-OasysLend has a voting escrow function. The voting escrow function mainly offers two incentives to users who lock OAL tokens.
+Palmy has a voting escrow function. The voting escrow function mainly offers two incentives to users who lock OAL tokens.
 
 - Locking OAL boosts the rewards for new OAL in circulation
 - Voting veOAL allows voters to earn protocol fees accumulated in their voting pool

@@ -4,7 +4,7 @@ pragma solidity 0.8.10;
 /**
  * @title Errors library
  * @author HorizonX.tech
- * @notice Defines the error messages emitted by the different contracts of the OasysLend protocol
+ * @notice Defines the error messages emitted by the different contracts of the Palmy protocol
  * @dev Error messages prefix glossary:
  *  - VL = ValidationLogic
  *  - MATH = Math libraries
