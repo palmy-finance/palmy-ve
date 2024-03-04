@@ -284,7 +284,7 @@ contract Voter is Initializable {
 		_reset(_lockerId);
 		_checkpointToken();
 
-		uint256 thisWeek = _calcurateBasisTermTsFromCurrentTs();
+		uint256 thisWeek = _calculateBasisTermTsFromCurrentTs();
 		lastVoteTime[_lockerId] = thisWeek;
 
 		uint256 maxUserEpoch = Ve(_ve).userPointEpoch(_lockerId);
@@ -321,7 +321,7 @@ contract Voter is Initializable {
 			thisWeek += _term;
 		}
 
-		uint256 startWeek = _calcurateBasisTermTsFromCurrentTs();
+		uint256 startWeek = _calculateBasisTermTsFromCurrentTs();
 		if (votedTotalVotingWeights[_lockerId][startWeek] > 0) {
 			Ve(_ve).voting(_lockerId);
 		}
@@ -375,7 +375,7 @@ contract Voter is Initializable {
 	 * @param _lockerId The locker ID
 	 **/
 	function _reset(uint256 _lockerId) internal {
-		uint256 thisWeek = _calcurateBasisTermTsFromCurrentTs();
+		uint256 thisWeek = _calculateBasisTermTsFromCurrentTs();
 		lastVoteTime[_lockerId] = thisWeek;
 
 		for (uint256 j = 0; j < 105; j++) {
@@ -546,7 +546,7 @@ contract Voter is Initializable {
 	 * @dev about minus 1: include the beginning of next term in this term
 	 * @return timestamp of this term
 	 **/
-	function _calcurateBasisTermTsFromCurrentTs()
+	function _calculateBasisTermTsFromCurrentTs()
 		internal
 		view
 		returns (uint256)
