@@ -438,6 +438,10 @@ describe('voter', () => {
       await vevoter.votedTotalVotingWeights(lockerId, roundedLockEndtime)
     ).to.be.equal(0)
   })
+  it('suspend token', async() => {
+    await vevoter.connect(distributor).suspendToken(lusdc.address)
+    await expect(vevoter.connect(user1).vote([1, 1, 0])).to.be.revertedWith('Token is suspended')
+  })
 })
 
 const waitWeek = async (weeks?: number) => {

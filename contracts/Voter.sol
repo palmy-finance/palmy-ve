@@ -238,6 +238,7 @@ contract Voter is Initializable {
 			tokenLastBalance[i] = nextTLastBalance;
 		}
 
+		tokenLastBalance[tokens.length - 1] = 0;
 		tokens.pop();
 		tokenIndex[_token] = 0;
 		pools[_token] = address(0);
