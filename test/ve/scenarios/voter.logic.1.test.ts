@@ -11,7 +11,7 @@ import {
   VotingEscrow,
   Voter__factory,
   Voter,
-} from '../../types'
+} from '../../../types'
 
 // Constants
 const HOUR = 60 * 60 // in minute

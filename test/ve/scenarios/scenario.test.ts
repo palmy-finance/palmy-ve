@@ -14,8 +14,8 @@ import {
   VotingEscrowV2Rev3,
   VotingEscrowV2Rev3__factory,
   VotingEscrow__factory,
-} from '../../types'
-import { HOUR, multiTransferOal, TERM, YEAR } from './utils'
+} from '../../../types'
+import { HOUR, multiTransferOal, TERM, YEAR } from '../utils'
 
 // Constants
 const TOKEN_PARAMETERS: { token: string }[] = [

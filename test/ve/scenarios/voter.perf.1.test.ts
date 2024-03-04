@@ -11,7 +11,7 @@ import {
   Voter__factory,
   Voter,
   Token,
-} from '../../types'
+} from '../../../types'
 
 // Constants
 const HOUR = 60 * 60 // in minute

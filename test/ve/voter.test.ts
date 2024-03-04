@@ -251,75 +251,44 @@ describe('voter', () => {
   it('Check the end of vote period', async () => {
     let weight5 = [1, 1, 0]
     let lockerId = await ve.ownerToId(user5.address)
+    await waitWeek()
 
-    const OneDay = 1 * DAY
-    const OneWeek = 7 * DAY
-    const FourWeeks = 28 * WEEK
-    const HalfYear = 26 * WEEK
-    const OneYear = 1 * YEAR
-    const LockEndtime = (await ve.lockedEnd(lockerId)).toNumber()
+    const oneDay = 1 * DAY
+    const oneTerm = 7 * DAY * 2
+    const fourWeeks = 4 * WEEK
+    const halfYear = 6 * fourWeeks
+    const oneYear = 1 * YEAR
+    const lockEndtime = (await ve.lockedEnd(lockerId)).toNumber()
 
     const blockNum = await ethers.provider.getBlockNumber()
     const block = await ethers.provider.getBlock(blockNum)
     const currentTimestamp = block.timestamp
 
-    let roundedTimestamp = Math.floor(currentTimestamp / OneWeek) * OneWeek
+    let roundedTimestamp = Math.floor(currentTimestamp / oneTerm) * oneTerm
     let roundedOneDay =
-      Math.floor((currentTimestamp + OneDay) / OneWeek) * OneWeek
+      Math.floor((currentTimestamp + oneDay) / oneTerm) * oneTerm
     let roundedOneWeek =
-      Math.floor((currentTimestamp + OneWeek) / OneWeek) * OneWeek
+      Math.floor((currentTimestamp + oneTerm) / oneTerm) * oneTerm
     let roundedFourWeeks =
-      Math.floor((currentTimestamp + FourWeeks) / OneWeek) * OneWeek
+      Math.floor((currentTimestamp + fourWeeks) / oneTerm) * oneTerm
     let roundedHalfYear =
-      Math.floor((currentTimestamp + HalfYear) / OneWeek) * OneWeek
+      Math.floor((currentTimestamp + halfYear) / oneTerm) * oneTerm
     let roundedOneYear =
-      Math.floor((currentTimestamp + OneYear) / OneWeek) * OneWeek
-    let roundedLockEndtime = Math.floor(LockEndtime / OneWeek) * OneWeek
+      Math.floor((currentTimestamp + oneYear) / oneTerm) * oneTerm
+    let roundedLockEndtime = Math.floor(lockEndtime / oneTerm) * oneTerm
 
     const consoleLogTimestamp = (timestamp: number) =>
-      console.log(`${new Date(timestamp * 1000).toISOString()} (${timestamp})`)
-
-    consoleLogTimestamp(roundedTimestamp)
-    consoleLogTimestamp(roundedOneDay)
-    consoleLogTimestamp(roundedOneWeek)
-    consoleLogTimestamp(roundedFourWeeks)
-    consoleLogTimestamp(roundedHalfYear)
-    consoleLogTimestamp(roundedOneYear)
-    consoleLogTimestamp(roundedLockEndtime)
+      console.log(`${new Date(timestamp * 1000).toISOString()} (${timestamp})`);
+    [roundedTimestamp,roundedOneDay,roundedOneWeek,roundedFourWeeks,roundedHalfYear,roundedOneYear,roundedLockEndtime].forEach(consoleLogTimestamp)
 
     /// case1: vote period is OneDay
-    await vevoter.connect(user5).voteUntil(weight5, currentTimestamp + OneDay)
+    
+    await expect(vevoter.connect(user5).voteUntil(weight5, currentTimestamp + oneDay)).to.be.reverted;
+
+    /// case2: vote period is oneTerm
+    await vevoter.connect(user5).voteUntil(weight5, currentTimestamp + oneTerm)
     await expect(await vevoter.voteEndTime(lockerId)).to.be.equal(
-      currentTimestamp + OneDay
-    )
-
-    await expect(
-      await vevoter.votes(lockerId, lusdc.address, roundedOneDay)
-    ).to.be.above(0)
-    await expect(
-      await vevoter.votedTotalVotingWeights(lockerId, roundedOneDay)
-    ).to.be.above(0)
-
-    console.log(
-      'votes at roundedOneDay is %s',
-      await vevoter.votes(lockerId, lusdc.address, roundedOneDay)
-    )
-    console.log(
-      'votedTotalVotingWeights at roundedOneDay is %s',
-      await vevoter.votedTotalVotingWeights(lockerId, roundedOneDay)
-    )
-
-    await expect(
-      await vevoter.votes(lockerId, lusdc.address, roundedOneDay + OneWeek)
-    ).to.be.equal(0)
-    await expect(
-      await vevoter.votedTotalVotingWeights(lockerId, roundedOneDay + OneWeek)
-    ).to.be.equal(0)
-
-    /// case2: vote period is OneWeek
-    await vevoter.connect(user5).voteUntil(weight5, currentTimestamp + OneWeek)
-    await expect(await vevoter.voteEndTime(lockerId)).to.be.equal(
-      currentTimestamp + OneWeek
+      currentTimestamp + oneTerm
     )
 
     await expect(
@@ -339,18 +308,18 @@ describe('voter', () => {
     )
 
     await expect(
-      await vevoter.votes(lockerId, lusdc.address, roundedOneWeek + OneWeek)
+      await vevoter.votes(lockerId, lusdc.address, roundedOneWeek + oneTerm)
     ).to.be.equal(0)
     await expect(
-      await vevoter.votedTotalVotingWeights(lockerId, roundedOneWeek + OneWeek)
+      await vevoter.votedTotalVotingWeights(lockerId, roundedOneWeek + oneTerm)
     ).to.be.equal(0)
 
     /// case3: vote period is FourWeeks
     await vevoter
       .connect(user5)
-      .voteUntil(weight5, currentTimestamp + FourWeeks)
+      .voteUntil(weight5, currentTimestamp + fourWeeks)
     await expect(await vevoter.voteEndTime(lockerId)).to.be.equal(
-      currentTimestamp + FourWeeks
+      currentTimestamp + fourWeeks
     )
 
     await expect(
@@ -370,77 +339,26 @@ describe('voter', () => {
     )
 
     await expect(
-      await vevoter.votes(lockerId, lusdc.address, roundedFourWeeks + OneWeek)
+      await vevoter.votes(lockerId, lusdc.address, roundedFourWeeks + oneTerm)
     ).to.be.equal(0)
     await expect(
       await vevoter.votedTotalVotingWeights(
         lockerId,
-        roundedFourWeeks + OneWeek
+        roundedFourWeeks + oneTerm
       )
     ).to.be.equal(0)
 
     /// case4: vote period is OneYear
-    await vevoter.connect(user5).voteUntil(weight5, currentTimestamp + OneYear)
-    await expect(await vevoter.voteEndTime(lockerId)).to.be.equal(
-      currentTimestamp + OneYear
-    )
+    await expect(vevoter.connect(user5).voteUntil(weight5, currentTimestamp + oneYear)).to.be.revertedWith("Over max vote end timestamp")
 
-    await expect(
-      await vevoter.votes(lockerId, lusdc.address, roundedOneYear)
-    ).to.be.above(0)
-    await expect(
-      await vevoter.votedTotalVotingWeights(lockerId, roundedOneYear)
-    ).to.be.above(0)
+    /// case5: the end of vote period is LockEndtime
+    await expect(vevoter.connect(user5).voteUntil(weight5, lockEndtime)).to.be.revertedWith("Over max vote end timestamp")
 
-    console.log(
-      'votes in roundedOneYear is %s',
-      await vevoter.votes(lockerId, lusdc.address, roundedOneYear)
-    )
-    console.log(
-      'votedTotalVotingWeights at roundedOneYear is %s',
-      await vevoter.votedTotalVotingWeights(lockerId, roundedOneYear)
-    )
-
-    await expect(
-      await vevoter.votes(lockerId, lusdc.address, roundedOneYear + OneWeek)
-    ).to.be.equal(0)
-    await expect(
-      await vevoter.votedTotalVotingWeights(lockerId, roundedOneYear + OneWeek)
-    ).to.be.equal(0)
-
-    /// case4: the end of vote period is LockEndtime
-    await vevoter.connect(user5).voteUntil(weight5, LockEndtime)
-    await expect(await vevoter.voteEndTime(lockerId)).to.be.equal(LockEndtime)
-
-    await expect(
-      await vevoter.votes(lockerId, lusdc.address, roundedLockEndtime - OneWeek)
-    ).to.be.above(0)
-    await expect(
-      await vevoter.votedTotalVotingWeights(
-        lockerId,
-        roundedLockEndtime - OneWeek
-      )
-    ).to.be.above(0)
-
-    console.log(
-      'votes at roundedLockEndtime is %s',
-      await vevoter.votes(lockerId, lusdc.address, roundedLockEndtime)
-    )
-    console.log(
-      'votedTotalVotingWeights at roundedLockEndtime is %s',
-      await vevoter.votedTotalVotingWeights(lockerId, roundedLockEndtime)
-    )
-
-    await expect(
-      await vevoter.votes(lockerId, lusdc.address, roundedLockEndtime)
-    ).to.be.equal(0)
-    await expect(
-      await vevoter.votedTotalVotingWeights(lockerId, roundedLockEndtime)
-    ).to.be.equal(0)
   })
   it('suspend token', async() => {
+    await vevoter.connect(user1).vote([1, 1, 0])
     await vevoter.connect(distributor).suspendToken(lusdc.address)
-    await expect(vevoter.connect(user1).vote([1, 1, 0])).to.be.revertedWith('Token is suspended')
+    await expect(vevoter.connect(user1).vote([1, 1, 0])).to.be.revertedWith('Must be the same length: tokens, _weight')
   })
 })
 

@@ -94,7 +94,7 @@ contract VotingEscrow is Initializable {
 	uint8 public decimals;
 
 	/// @dev Current count of locker
-	uint256 internal lockerId;
+	uint256 public lockerId;
 
 	/// @dev Mapping from locker ID to the address that owns it.
 	mapping(uint256 => address) internal idToOwner;
@@ -410,6 +410,11 @@ contract VotingEscrow is Initializable {
 
 		LockedBalance memory oldLocked;
 		(oldLocked.amount, oldLocked.end) = (_locked.amount, _locked.end);
+		require(
+			int256(_locked.amount) + int256(_value) <= type(int128).max,
+			"Overflow on locked.amount"
+		);
+
 		// Adding to existing lock, or if a lock is expired - creating a new one
 		if (_value != 0) {
 			_locked.amount += int128(int256(_value));

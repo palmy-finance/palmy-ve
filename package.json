@@ -34,7 +34,9 @@
     "task:exec:checkpoint-of-contracts:shiden": "yarn task:exec:checkpoint-of-contracts --network shiden",
     "task:exec:checkpoint-of-contracts:astar": "yarn task:exec:checkpoint-of-contracts --network astar",
     "compile": "SKIP_LOAD=true hardhat compile",
-    "test": "hardhat test",
+    "test": "yarn test:unit && yarn test:schenario",
+    "test:unit": "yarn compile && hardhat test test/ve/*.test.ts",
+    "test:scenario": "yarn compile && hardhat test test/ve/scenarios/*.test.ts",
     "prettier": "prettier --write 'contracts/**/*.sol'"
   },
   "devDependencies": {

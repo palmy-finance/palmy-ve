@@ -15,6 +15,7 @@ const HOUR = 60 * 60 // in minute
 const DAY = HOUR * 24
 const WEEK = DAY * 7
 const YEAR = DAY * 365
+const ONE_TERM = 2 * WEEK
 
 describe('feeDist', () => {
   let user1: SignerWithAddress
@@ -66,23 +67,23 @@ describe('feeDist', () => {
   })
 
   it('Distribute OAL: The total balance of VE contract should be increase from 200 OAL to 300 OAL', async () => {
-    await network.provider.send('evm_increaseTime', [WEEK])
+    await network.provider.send('evm_increaseTime', [ONE_TERM])
     await network.provider.send('evm_mine')
     const feeDistributor = (await upgrades.deployProxy(
       new FeeDistributor__factory(distributor),
       [ve.address]
     )) as FeeDistributor
     await feeDistributor.deployTransaction.wait()
-    // The fee 10 OAL is minted 10 times everyday
+    // The fee 20 OAL is minted 10 times everyday
     for (let i = 0; i < 10; i++) {
       await oal
         .connect(distributor)
-        .transfer(feeDistributor.address, parseEther('10'))
+        .transfer(feeDistributor.address, parseEther('20'))
       await network.provider.send('evm_increaseTime', [DAY])
     }
-    // Distribute the transferred fees between the current week and the following week
-    await feeDistributor.checkpointToken() // Claim the fees after one week will be passed
-    await network.provider.send('evm_increaseTime', [WEEK])
+    // Distribute the transferred fees between the current term and the following term
+    await feeDistributor.checkpointToken() // Claim the fees after one term will be passed
+    await network.provider.send('evm_increaseTime', [ONE_TERM])
     await feeDistributor.connect(user1).claim()
     await feeDistributor.connect(user2).claim()
     await feeDistributor.connect(user3).claim()

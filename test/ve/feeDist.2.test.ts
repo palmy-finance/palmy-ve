@@ -54,6 +54,7 @@ describe('FeeDistributor.sol Part2', () => {
 
   describe('Functions related to term index / timestamp', () => {
     const WEEK = 86400 * 7
+    const ONE_TERM = 2 * WEEK
 
     it('.currentTermIndex, .currentTermTimestamp', async () => {
       const { feeDistributor } = await setup()
@@ -83,7 +84,7 @@ describe('FeeDistributor.sol Part2', () => {
       const _termTimestamp = (
         await feeDistributor.currentTermTimestamp()
       ).toNumber()
-      expect(_termIndex).to.eq(4)
+      expect(_termIndex).to.eq(2)
       expect(_termTimestamp).to.eq(termTimestampAtDeployed + WEEK * 4)
       // after 1 year
       ethers.provider.send('evm_increaseTime', [WEEK * (52 - 4)])
@@ -92,8 +93,8 @@ describe('FeeDistributor.sol Part2', () => {
       const __termTimestamp = (
         await feeDistributor.currentTermTimestamp()
       ).toNumber()
-      expect(__termIndex).to.eq(52)
-      expect(__termTimestamp).to.eq(termTimestampAtDeployed + WEEK * 52)
+      expect(__termIndex).to.eq(52 / 2)
+      expect(__termTimestamp).to.eq(termTimestampAtDeployed + ONE_TERM * 52 / 2)
     })
 
     it('.termTimestampByIndex, .termIndexAt', async () => {
@@ -108,9 +109,9 @@ describe('FeeDistributor.sol Part2', () => {
         feeDistributor.termTimestampByIndex(10),
         feeDistributor.termTimestampByIndex(100),
       ])
-      const _term1Timestamp = currentTermTimestamp + WEEK
-      const _term10Timestamp = currentTermTimestamp + WEEK * 10
-      const _term100Timestamp = currentTermTimestamp + WEEK * 100
+      const _term1Timestamp = currentTermTimestamp + ONE_TERM
+      const _term10Timestamp = currentTermTimestamp + ONE_TERM * 10
+      const _term100Timestamp = currentTermTimestamp + ONE_TERM * 100
 
       // from index to timestamp
       expect(atDeployed.toNumber()).to.eq(currentTermTimestamp)
@@ -127,30 +128,30 @@ describe('FeeDistributor.sol Part2', () => {
       ).to.eq(1)
       expect(
         (
-          await feeDistributor.termIndexAt(_term10Timestamp + WEEK - 1)
+          await feeDistributor.termIndexAt(_term10Timestamp + ONE_TERM - 1)
         ).toNumber()
       ).to.eq(10)
       expect(
-        (await feeDistributor.termIndexAt(_term10Timestamp + WEEK)).toNumber()
+        (await feeDistributor.termIndexAt(_term10Timestamp + ONE_TERM)).toNumber()
       ).to.eq(11)
       expect(
         (
-          await feeDistributor.termIndexAt(_term10Timestamp + WEEK + 1)
+          await feeDistributor.termIndexAt(_term10Timestamp + ONE_TERM + 1)
         ).toNumber()
       ).to.eq(11)
       expect(
         (
-          await feeDistributor.termIndexAt(_term100Timestamp + WEEK * 50 - 1)
+          await feeDistributor.termIndexAt(_term100Timestamp + ONE_TERM * 50 - 1)
         ).toNumber()
       ).to.eq(149)
       expect(
         (
-          await feeDistributor.termIndexAt(_term100Timestamp + WEEK * 50)
+          await feeDistributor.termIndexAt(_term100Timestamp + ONE_TERM * 50)
         ).toNumber()
       ).to.eq(150)
       expect(
         (
-          await feeDistributor.termIndexAt(_term100Timestamp + WEEK * 50 + 1)
+          await feeDistributor.termIndexAt(_term100Timestamp + ONE_TERM * 50 + 1)
         ).toNumber()
       ).to.eq(150)
     })
