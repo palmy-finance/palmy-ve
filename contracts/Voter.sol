@@ -160,7 +160,7 @@ contract Voter is Initializable {
 			uint256 index = ILendingPool(lendingPool).getReserveNormalizedIncome(
 				underlying
 			);
-			tokenIndex[tokens[i]] = index;
+			lastLTokenIndex[tokens[i]] = index;
 			tokenBalance[i] = _lToken.scaledBalanceOf(address(this));
 			toDistribute[i] = tokenBalance[i] - tokenLastBalance[i];
 			tokenLastBalance[i] = tokenBalance[i];
