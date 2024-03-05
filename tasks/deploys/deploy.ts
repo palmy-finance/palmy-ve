@@ -19,6 +19,12 @@ const LOCKING_TOKEN_ADDRESSES: {
   astar: '0xc4335B1b76fA6d52877b3046ECA68F6E708a27dd', // OAL
   shiden: '0xb163716cb6c8b0a56e4f57c394A50F173E34181b', // OAL
 }
+const LENDING_POOL_ADDRESSES: {
+  [key in SupportedNetwork]: EthereumAddress
+} = {
+  astar: '0xTODO',
+  shiden: '0xTODO',
+}
 
 task('deploy:all', 'Deploy all contracts')
   .addOptionalParam('lockingToken', 'Token Address to use as Lock input')
@@ -58,6 +64,7 @@ task('deploy:all', 'Deploy all contracts')
       })
 
       const voter = (await upgrades.deployProxy(new Voter__factory(deployer), [
+        LENDING_POOL_ADDRESSES[network.name as SupportedNetwork],
         votingEscrow.address,
       ])) as Voter
       await voter.deployTransaction.wait()

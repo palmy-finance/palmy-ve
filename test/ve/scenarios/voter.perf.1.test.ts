@@ -11,6 +11,7 @@ import {
   Voter__factory,
   Voter,
   Token,
+  MockLendingPool__factory,
 } from '../../../types'
 
 // Constants
@@ -72,7 +73,7 @@ const multiTransferOal = async ({
 
 const multiApproveToVe = async ({
   users,
-   oal,
+  oal,
   votingEscrowAddress,
 }: {
   users: SignerWithAddress[]
@@ -101,7 +102,9 @@ const setup = async () => {
     [oal.address]
   )) as VotingEscrow
   await votingEscrow.deployTransaction.wait()
+  const lendingPool = await new MockLendingPool__factory(deployer).deploy()
   const voter = (await upgrades.deployProxy(new Voter__factory(deployer), [
+    lendingPool.address,
     votingEscrow.address,
   ])) as Voter
   await voter.deployTransaction.wait()
@@ -125,6 +128,7 @@ const setup = async () => {
     deployer,
     users: rest,
     mockLTokenAddresses: tokenAddresses,
+    lendingPool,
   }
 }
 
@@ -133,7 +137,7 @@ describe('Confirming performance of Voter#vote (ver2)', () => {
   const _setup = async (numOfUsers: number, amount?: BigNumber) => {
     const {
       provider,
-       oal,
+      oal,
       votingEscrow,
       voter,
       deployer,
@@ -146,12 +150,12 @@ describe('Confirming performance of Voter#vote (ver2)', () => {
       users: _users,
       length: _users.length,
       amount: amount ? amount : BigNumber.from('10000'),
-       oal,
+      oal,
       holder: deployer,
     })
     await multiApproveToVe({
       users: _users,
-       oal,
+      oal,
       votingEscrowAddress: votingEscrow.address,
     })
     return {

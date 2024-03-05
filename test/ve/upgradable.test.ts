@@ -3,6 +3,7 @@ import { parseEther } from 'ethers/lib/utils'
 import { ethers, upgrades } from 'hardhat'
 import {
   MockLToken__factory,
+  MockLendingPool__factory,
   TestVoterRevX,
   TestVoterRevX__factory,
   TestVotingEscrowRevX,
@@ -53,6 +54,7 @@ const setup = async () => {
     parseEther('100000'),
     await deployer.getAddress()
   )
+  const lendingPool = await new MockLendingPool__factory(deployer).deploy()
   await oal.deployTransaction.wait()
   const votingEscrow = (await upgrades.deployProxy(
     new VotingEscrow__factory(deployer),
@@ -60,6 +62,7 @@ const setup = async () => {
   )) as VotingEscrow
   await votingEscrow.deployTransaction.wait()
   const voter = (await upgrades.deployProxy(new Voter__factory(deployer), [
+    lendingPool.address,
     votingEscrow.address,
   ])) as Voter
   await voter.deployTransaction.wait()
@@ -77,12 +80,13 @@ const setup = async () => {
 
   return {
     provider: ethers.provider,
-     oal,
+    oal,
     votingEscrow,
     voter,
     deployer,
     users: rest,
     mockLTokenAddresses: tokenAddresses,
+    lendingPool,
   }
 }
 
