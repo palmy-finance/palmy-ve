@@ -12,6 +12,7 @@ import {
   ERC20__factory,
   MockLToken,
   MockLToken__factory,
+  MockLendingPool__factory,
   Token,
   Token__factory,
   Voter,
@@ -46,6 +47,7 @@ const setupWithoutTokens = async () => {
     parseEther('100000'),
     await deployer.getAddress()
   )
+  const lendingPool = await new MockLendingPool__factory(deployer).deploy()
   await oal.deployTransaction.wait()
   const votingEscrow = (await upgrades.deployProxy(
     new VotingEscrow__factory(deployer),
@@ -53,6 +55,7 @@ const setupWithoutTokens = async () => {
   )) as VotingEscrow
   await votingEscrow.deployTransaction.wait()
   const voter = (await upgrades.deployProxy(new Voter__factory(deployer), [
+    lendingPool.address,
     votingEscrow.address,
   ])) as Voter
   await voter.deployTransaction.wait()
@@ -68,6 +71,7 @@ const setupWithoutTokens = async () => {
     voter,
     deployer,
     users: rest,
+    lendingPool,
   }
 }
 
@@ -122,6 +126,7 @@ describe('Voter.sol Part2', () => {
       const [deployer] = await ethers.getSigners()
       await expect(
         upgrades.deployProxy(new Voter__factory(deployer), [
+          ethers.constants.AddressZero,
           ethers.constants.AddressZero,
         ])
       ).to.be.revertedWith('Zero address cannot be set')

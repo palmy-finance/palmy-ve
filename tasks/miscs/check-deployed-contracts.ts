@@ -4,7 +4,6 @@ import { formatEther } from 'ethers/lib/utils'
 import { task } from 'hardhat/config'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
 import {
-  FeeDistributor__factory,
   Token__factory,
   Voter__factory,
   VotingEscrowV2__factory,
@@ -79,27 +78,6 @@ const checkVoter = async (args: Args) => {
     )
   }
   console.log(`--- [end] Voter ---`)
-}
-
-const checkFeeDistributor = async (args: Args) => {
-  console.log(`--- [start] FeeDistributor ---`)
-  console.log(`> address ... ${args.address}`)
-  const _instance = await FeeDistributor__factory.connect(
-    args.address,
-    args.providerOrSigner
-  )
-  const targets = [
-    { label: 'timeCursor', fn: _instance.timeCursor },
-    { label: 'lastTokenTime', fn: _instance.lastTokenTime },
-    { label: 'votingEscrow', fn: _instance.votingEscrow },
-    { label: 'token', fn: _instance.token },
-    { label: 'tokenLastBalance', fn: _instance.tokenLastBalance },
-  ]
-  for (const _v of targets) console.log(`${_v.label} ... ${await _v.fn()}`)
-  // TODO
-  // - tokensPerWeek
-  // - veSupply
-  console.log(`--- [end] FeeDistributor ---`)
 }
 
 // Main

@@ -54,4 +54,9 @@ interface LToken {
 	 * @return `true`
 	 **/
 	function approve(address spender, uint256 value) external returns (bool);
+
+	/**
+	 * @dev Returns the address of the underlying asset of this lToken (E.g. WETH for lWETH)
+	 **/
+	function UNDERLYING_ASSET_ADDRESS() external view returns (address);
 }

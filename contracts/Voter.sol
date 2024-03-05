@@ -3,7 +3,9 @@ pragma solidity 0.8.10;
 
 import "./interfaces/LToken.sol";
 import "./interfaces/Ve.sol";
+import "./interfaces/ILendingPool.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "./libraries/WadRayMath.sol";
 
 /**
  * @title Voter contract
@@ -13,13 +15,15 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
  * @author HorizonX.tech
  **/
 contract Voter is Initializable {
+	using WadRayMath for uint256;
 	uint256 constant WEEK = 7 * 86400;
 	uint256 constant MONTH = 30 * 86400;
+	bytes4 internal constant LTOKEN_FUNC_SELECTOR = 0x1da24f3e; // selector to check whether ltoken or not scaledBalanceOf(address)
+	address public lendingPool;
 	uint256 public _term;
 	uint256 public maxVoteDuration;
 	address public _ve; // the ve token that governs these contracts
 	address internal base;
-	bytes4 internal ltoken_func_selector; // selector to check whether ltoken or not
 
 	mapping(uint256 => uint256) public totalWeight; // total voting weight
 
@@ -34,6 +38,7 @@ contract Voter is Initializable {
 		public votedTotalVotingWeights; // lockerId => total voting weight of user for each terms
 	mapping(address => bool) public isWhitelisted; // for tokens - whether or not registered
 	mapping(address => bool) public isSuspended; // for tokens - whether it is valid
+	mapping(address => uint256) public lastLTokenIndex; // token => index value of the token.
 
 	uint256[1000] public tokenLastBalance;
 	mapping(address => uint256) public suspendedTokenLastBalance; // tokenLastBalance for suspended tokens
@@ -68,8 +73,12 @@ contract Voter is Initializable {
 
 	/// @notice initializer for upgradable contract instead of constructor
 	/// @param _votingEscrow VotingEscrow address
-	function initialize(address _votingEscrow) public initializer {
+	function initialize(
+		address _lendingPool,
+		address _votingEscrow
+	) public initializer {
 		require(_votingEscrow != address(0), "Zero address cannot be set");
+		lendingPool = _lendingPool;
 		_ve = _votingEscrow;
 		base = Ve(_votingEscrow).token();
 		_term = 2 * WEEK;
@@ -78,7 +87,6 @@ contract Voter is Initializable {
 		startTime = _t;
 		lastTokenTime = _t + _term;
 		minter = msg.sender;
-		ltoken_func_selector = 0x1da24f3e; // scaledBalanceOf(address)
 		timestampAtDeployed = block.timestamp;
 		termTimestampAtDeployed = _t;
 	}
@@ -147,7 +155,13 @@ contract Voter is Initializable {
 		uint256[] memory toDistribute = new uint256[](tokens.length);
 
 		for (uint256 i = 0; i < tokens.length; i++) {
-			tokenBalance[i] = LToken(tokens[i]).scaledBalanceOf(address(this));
+			LToken _lToken = LToken(tokens[i]);
+			address underlying = _lToken.UNDERLYING_ASSET_ADDRESS();
+			uint256 index = ILendingPool(lendingPool).getReserveNormalizedIncome(
+				underlying
+			);
+			tokenIndex[tokens[i]] = index;
+			tokenBalance[i] = _lToken.scaledBalanceOf(address(this));
 			toDistribute[i] = tokenBalance[i] - tokenLastBalance[i];
 			tokenLastBalance[i] = tokenBalance[i];
 		}
@@ -534,7 +548,7 @@ contract Voter is Initializable {
 	function isLToken(address token) internal returns (bool) {
 		if (token.code.length == 0) return false; // check eoa address
 		bytes memory data = abi.encodeWithSelector(
-			ltoken_func_selector,
+			LTOKEN_FUNC_SELECTOR,
 			address(this)
 		);
 		(bool success, ) = token.call(data);

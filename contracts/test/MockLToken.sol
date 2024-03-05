@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.10;
-import "hardhat/console.sol";
-import { WadRayMath } from "./libraries/WadRayMath.sol";
+import { WadRayMath } from "../libraries/WadRayMath.sol";
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import { LToken } from "../interfaces/LToken.sol";
 
 /**
  * @title Palmy ERC20 LToken
  * @dev Implementation of the interest bearing token for the Palmy protocol
  * @author HorizonX.tech
  */
-contract MockLToken {
+contract MockLToken is LToken {
 	mapping(address => uint256) private _balances;
 
 	mapping(address => mapping(address => uint256)) private _allowances;
@@ -44,9 +44,6 @@ contract MockLToken {
 
 		uint256 amountScaled = amount.rayDiv(INDEX);
 
-		//console.log("minted amount is %s", amount);
-		//console.log("minted scaled amount is %s", amount.rayDiv(index));
-
 		_mint(user, amountScaled);
 
 		return previousBalance == 0;
@@ -63,9 +60,6 @@ contract MockLToken {
 			return;
 		}
 
-		//console.log("minted amount is %s", amount);
-		//console.log("minted scaled amount is %s", amount.rayDiv(index));
-
 		_mint(voter, amount.rayDiv(INDEX));
 	}
 
@@ -75,8 +69,6 @@ contract MockLToken {
 	 * @return The balance of the user
 	 **/
 	function balanceOf(address user) public view returns (uint256) {
-		//console.log("scaled balance is %s", _balances[user]);
-		//console.log("balance is %s", _balances[user].rayMul(index));
 		return _balances[user].rayMul(INDEX);
 	}
 
@@ -102,9 +94,6 @@ contract MockLToken {
 			_balances[from] -= amount.rayDiv(index);
 		}
 		_balances[to] += amount.rayDiv(index);
-
-		//console.log("transferred amount is %s", amount);
-		//console.log("transferred scaled amount is %s", amount.rayDiv(index));
 	}
 
 	function approve(
@@ -140,5 +129,21 @@ contract MockLToken {
 		address owner = msg.sender;
 		_transfer(owner, to, amount);
 		return true;
+	}
+
+	function decimals() external pure override returns (uint8) {
+		revert("decimals not implemented");
+	}
+
+	function totalSupply() external pure override returns (uint256) {
+		revert("totalSupply not implemented");
+	}
+
+	function scaledTotalSupply() external pure override returns (uint256) {
+		revert("scaledTotalSupply not implemented");
+	}
+
+	function UNDERLYING_ASSET_ADDRESS() external view override returns (address) {
+		return address(this);
 	}
 }

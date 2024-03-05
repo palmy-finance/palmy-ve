@@ -4,6 +4,8 @@ import { network, upgrades } from 'hardhat'
 import {
   MockLToken,
   MockLToken__factory,
+  MockLendingPool,
+  MockLendingPool__factory,
   Token,
   Token__factory,
   Voter,
@@ -36,6 +38,7 @@ describe('voter', () => {
   let usdcpool: SignerWithAddress
   let daipool: SignerWithAddress
   let usdtpool: SignerWithAddress
+  let lendingPool: MockLendingPool
   before(async () => {
     ;[
       user1,
@@ -72,8 +75,9 @@ describe('voter', () => {
       oal.address,
     ])) as VotingEscrow
     await ve.deployTransaction.wait()
-
+    lendingPool = await new MockLendingPool__factory(distributor).deploy()
     vevoter = (await upgrades.deployProxy(new Voter__factory(distributor), [
+      lendingPool.address,
       ve.address,
     ])) as Voter
     await vevoter.deployTransaction.wait()
@@ -278,12 +282,22 @@ describe('voter', () => {
     let roundedLockEndtime = Math.floor(lockEndtime / oneTerm) * oneTerm
 
     const consoleLogTimestamp = (timestamp: number) =>
-      console.log(`${new Date(timestamp * 1000).toISOString()} (${timestamp})`);
-    [roundedTimestamp,roundedOneDay,roundedOneWeek,roundedFourWeeks,roundedHalfYear,roundedOneYear,roundedLockEndtime].forEach(consoleLogTimestamp)
+      console.log(`${new Date(timestamp * 1000).toISOString()} (${timestamp})`)
+    ;[
+      roundedTimestamp,
+      roundedOneDay,
+      roundedOneWeek,
+      roundedFourWeeks,
+      roundedHalfYear,
+      roundedOneYear,
+      roundedLockEndtime,
+    ].forEach(consoleLogTimestamp)
 
     /// case1: vote period is OneDay
-    
-    await expect(vevoter.connect(user5).voteUntil(weight5, currentTimestamp + oneDay)).to.be.reverted;
+
+    await expect(
+      vevoter.connect(user5).voteUntil(weight5, currentTimestamp + oneDay)
+    ).to.be.reverted
 
     /// case2: vote period is oneTerm
     await vevoter.connect(user5).voteUntil(weight5, currentTimestamp + oneTerm)
@@ -349,16 +363,21 @@ describe('voter', () => {
     ).to.be.equal(0)
 
     /// case4: vote period is OneYear
-    await expect(vevoter.connect(user5).voteUntil(weight5, currentTimestamp + oneYear)).to.be.revertedWith("Over max vote end timestamp")
+    await expect(
+      vevoter.connect(user5).voteUntil(weight5, currentTimestamp + oneYear)
+    ).to.be.revertedWith('Over max vote end timestamp')
 
     /// case5: the end of vote period is LockEndtime
-    await expect(vevoter.connect(user5).voteUntil(weight5, lockEndtime)).to.be.revertedWith("Over max vote end timestamp")
-
+    await expect(
+      vevoter.connect(user5).voteUntil(weight5, lockEndtime)
+    ).to.be.revertedWith('Over max vote end timestamp')
   })
-  it('suspend token', async() => {
+  it('suspend token', async () => {
     await vevoter.connect(user1).vote([1, 1, 0])
     await vevoter.connect(distributor).suspendToken(lusdc.address)
-    await expect(vevoter.connect(user1).vote([1, 1, 0])).to.be.revertedWith('Must be the same length: tokens, _weight')
+    await expect(vevoter.connect(user1).vote([1, 1, 0])).to.be.revertedWith(
+      'Must be the same length: tokens, _weight'
+    )
   })
 })
 

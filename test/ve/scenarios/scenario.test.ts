@@ -6,6 +6,7 @@ import { formatEther, parseEther } from 'ethers/lib/utils'
 import { ethers, upgrades } from 'hardhat'
 import {
   MockLToken__factory,
+  MockLendingPool__factory,
   Token,
   Token__factory,
   Voter,
@@ -68,8 +69,10 @@ const setup = async () => {
     { call: { fn: 'initializeV2Rev3' } }
   )) as VotingEscrowV2Rev3
   await veV2Rev3.deployTransaction.wait()
+  const lendingPool = await new MockLendingPool__factory(deployer).deploy()
 
   const voter = (await upgrades.deployProxy(new Voter__factory(deployer), [
+    lendingPool.address,
     veV2Rev3.address,
   ])) as Voter
   await voter.deployTransaction.wait()
@@ -93,12 +96,13 @@ const setup = async () => {
     deployer,
     users: rest,
     mockLTokenAddresses: tokenAddresses,
+    lendingPool,
   }
 }
 
 const multiApproveToVe = async ({
   users,
-   oal,
+  oal,
   votingEscrowAddress,
 }: {
   users: SignerWithAddress[]
@@ -143,7 +147,7 @@ describe('Scenario: vote -> distribute -> claim bonus (protocol fee)', () => {
     })
     await multiApproveToVe({
       users: _users,
-       oal,
+      oal,
       votingEscrowAddress: votingEscrow.address,
     })
 
@@ -586,12 +590,12 @@ describe.only('Scenario: vote after some terms passed & add new token', () => {
       users: [user],
       length: 1,
       amount: parseEther('100'),
-       oal,
+      oal,
       holder: deployer,
     })
     await multiApproveToVe({
       users: [user],
-       oal,
+      oal,
       votingEscrowAddress: votingEscrow.address,
     })
 
