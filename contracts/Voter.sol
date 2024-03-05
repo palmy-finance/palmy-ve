@@ -526,19 +526,20 @@ contract Voter is Initializable {
 		uint256 _lockerId = Ve(_ve).ownerToId(_owner);
 		require(_lockerId != 0, "No lock associated with address");
 
-		uint256[] memory scaledAmount = new uint256[](tokens.length);
-		scaledAmount = _claim(_lockerId);
-
+		uint256[] memory claimAmount = _claim(_lockerId);
 		for (uint256 i = 0; i < tokens.length; i++) {
-			if (scaledAmount[i] != 0) {
+			if (claimAmount[i] != 0) {
 				require(
-					LToken(tokens[i]).transfer(_owner, scaledAmount[i]),
+					LToken(tokens[i]).transfer(
+						_owner,
+						claimAmount[i].rayMul(lastLTokenIndex[tokens[i]])
+					),
 					"fail to transfer ltoken"
 				);
-				tokenLastBalance[i] -= scaledAmount[i];
+				tokenLastBalance[i] -= claimAmount[i];
 			}
 		}
-		return scaledAmount;
+		return claimAmount;
 	}
 
 	/**

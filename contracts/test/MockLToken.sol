@@ -3,6 +3,7 @@ pragma solidity 0.8.10;
 import { WadRayMath } from "../libraries/WadRayMath.sol";
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { LToken } from "../interfaces/LToken.sol";
+import { ILendingPool } from "../interfaces/ILendingPool.sol";
 
 /**
  * @title Palmy ERC20 LToken
@@ -19,7 +20,7 @@ contract MockLToken is LToken {
 	string public name;
 	string public symbol;
 
-	uint256 start_time;
+	address public lendingPool;
 
 	uint256 internal constant RAY = 1e27;
 	uint256 internal constant INDEX_GAP = 123 * 1e23;
@@ -32,6 +33,17 @@ contract MockLToken is LToken {
 
 	using WadRayMath for uint256;
 
+	function setLendingPool(address _lendingPool) external {
+		lendingPool = _lendingPool;
+	}
+
+	function _index() internal view returns (uint256) {
+		if (lendingPool == address(0)) {
+			return INDEX;
+		}
+		return ILendingPool(lendingPool).getReserveNormalizedIncome(address(this));
+	}
+
 	/**
 	 * @dev Mints `amount` lTokens to `user`
 	 * - Only callable by the LendingPool, as extra state updates there need to be managed
@@ -42,7 +54,7 @@ contract MockLToken is LToken {
 	function mint(address user, uint256 amount) external returns (bool) {
 		uint256 previousBalance = _balances[user];
 
-		uint256 amountScaled = amount.rayDiv(INDEX);
+		uint256 amountScaled = amount.rayDiv(_index());
 
 		_mint(user, amountScaled);
 
@@ -60,7 +72,7 @@ contract MockLToken is LToken {
 			return;
 		}
 
-		_mint(voter, amount.rayDiv(INDEX));
+		_mint(voter, amount.rayDiv(_index()));
 	}
 
 	/**
@@ -69,7 +81,7 @@ contract MockLToken is LToken {
 	 * @return The balance of the user
 	 **/
 	function balanceOf(address user) public view returns (uint256) {
-		return _balances[user].rayMul(INDEX);
+		return _balances[user].rayMul(_index());
 	}
 
 	function scaledBalanceOf(address user) external view returns (uint256) {
@@ -84,7 +96,7 @@ contract MockLToken is LToken {
 	 * @param amount The amount getting transferred
 	 **/
 	function _transfer(address from, address to, uint256 amount) internal {
-		uint256 index = INDEX;
+		uint256 index = _index();
 		uint256 fromBalance = _balances[from];
 		require(
 			fromBalance >= amount.rayDiv(index),
@@ -145,5 +157,10 @@ contract MockLToken is LToken {
 
 	function UNDERLYING_ASSET_ADDRESS() external view override returns (address) {
 		return address(this);
+	}
+
+	function burn(address user, uint256 amount) external {
+		_balances[user] -= amount;
+		_totalSupply -= amount;
 	}
 }

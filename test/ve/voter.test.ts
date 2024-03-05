@@ -39,7 +39,7 @@ describe('voter', () => {
   let daipool: SignerWithAddress
   let usdtpool: SignerWithAddress
   let lendingPool: MockLendingPool
-  before(async () => {
+  const setup = async () => {
     ;[
       user1,
       user2,
@@ -81,6 +81,9 @@ describe('voter', () => {
       ve.address,
     ])) as Voter
     await vevoter.deployTransaction.wait()
+  }
+  before(async () => {
+    await setup()
   })
 
   it('User1, user2, user3, user4, and user5 create new lock by locking 100 OAL for MAXTIME', async () => {
@@ -295,9 +298,17 @@ describe('voter', () => {
 
     /// case1: vote period is OneDay
 
+    await vevoter.connect(user5).voteUntil(weight5, currentTimestamp + oneDay)
+    await expect(await vevoter.voteEndTime(lockerId)).to.be.equal(
+      currentTimestamp + oneDay
+    )
+
     await expect(
-      vevoter.connect(user5).voteUntil(weight5, currentTimestamp + oneDay)
-    ).to.be.reverted
+      await vevoter.votes(lockerId, lusdc.address, roundedOneWeek)
+    ).to.be.above(0)
+    await expect(
+      await vevoter.votedTotalVotingWeights(lockerId, roundedOneWeek)
+    ).to.be.above(0)
 
     /// case2: vote period is oneTerm
     await vevoter.connect(user5).voteUntil(weight5, currentTimestamp + oneTerm)
@@ -378,6 +389,19 @@ describe('voter', () => {
     await expect(vevoter.connect(user1).vote([1, 1, 0])).to.be.revertedWith(
       'Must be the same length: tokens, _weight'
     )
+  })
+  describe('distribution amount', async () => {
+    it('if Ltoken scaled amount to distribute is 10 and liquidity index is 1, then user can claim 10', async () => {
+      // setup
+      await setup()
+      await await vevoter.connect(distributor).addToken(lusdc.address)
+      await lusdc.setLendingPool(lendingPool.address)
+      await lusdc.burn(vevoter.address, await lusdc.balanceOf(vevoter.address))
+      await lusdc.mint(vevoter.address, parseEther('10'))
+      await oal.connect(user1).approve(ve.address, parseEther('1'))
+      await ve.connect(user1).createLock(parseEther('1'), 2 * YEAR)
+      await vevoter.connect(user1).vote([1])
+    })
   })
 })
 

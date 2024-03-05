@@ -13,6 +13,7 @@ import {
   Voter,
   MockLendingPool__factory,
 } from '../../../types'
+import { expect } from 'chai'
 
 // Constants
 const HOUR = 60 * 60 // in minute

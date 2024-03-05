@@ -4,7 +4,7 @@ import "../interfaces/ILendingPool.sol";
 
 contract MockLendingPool is ILendingPool {
 	mapping(address => uint256) public reserveNormalizedIncome;
-	uint256 internal constant DEFAULT_INCOME = 1 * 1e27;
+	uint256 internal constant DEFAULT_INCOME = 1e27;
 
 	function getReserveNormalizedIncome(
 		address asset
