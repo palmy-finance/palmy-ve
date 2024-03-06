@@ -13,7 +13,6 @@ import {
   VotingEscrow,
   VotingEscrow__factory,
 } from '../../types'
-import { ContractTransaction } from 'ethers'
 const { expect } = require('chai')
 const { ethers } = require('hardhat')
 
@@ -157,21 +156,13 @@ describe('voter', () => {
     // User1 claim again a week after the last mint and receive all fees
     await waitWeek(7)
     await vevoter.connect(user1).claim()
-    console.log(
-      'balance of lusdc at user1 address is %s',
-      await lusdc.balanceOf(user1.address)
+    await expect(await lusdc.balanceOf(user1.address)).to.be.equal('0')
+    await expect(await ldai.balanceOf(user1.address)).to.be.equal('0')
+    await expect(await lusdc.balanceOf(vevoter.address)).to.be.equal(
+      '99999999999999999967'
     )
-    console.log(
-      'balance of ldai at user1 address is %s',
-      await ldai.balanceOf(user1.address)
-    )
-    console.log(
-      'balance of lusdc at vevoter address is %s',
-      await lusdc.balanceOf(vevoter.address)
-    )
-    console.log(
-      'balance of ldai at vevoter address is %s',
-      await ldai.balanceOf(vevoter.address)
+    await expect(await lusdc.balanceOf(vevoter.address)).to.be.equal(
+      '99999999999999999967'
     )
   })
 
@@ -362,17 +353,18 @@ describe('voter', () => {
     }
     it('if Ltoken scaled amount to distribute is 10 and liquidity index is 1, then user can claim 10', async () => {
       await _setUp()
+      const reward = parseEther('10')
       await oal.connect(user1).approve(ve.address, parseEther('1'))
       await ve.connect(user1).createLock(parseEther('1'), 2 * YEAR)
       await vevoter.connect(user1).vote([1])
       await waitTerm()
-      await lusdc.mint(vevoter.address, parseEther('10'))
+      await lusdc.mintToTreasury(vevoter.address, reward)
       await vevoter.checkpointToken()
       await expect(
         (
           await vevoter.connect(user1).claimableFor(await user1.getAddress())
         )[0]
-      ).to.be.equal(parseEther('10'))
+      ).to.be.equal(reward)
     })
   })
 })
