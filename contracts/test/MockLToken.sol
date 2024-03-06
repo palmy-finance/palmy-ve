@@ -24,7 +24,7 @@ contract MockLToken is LToken {
 
 	uint256 internal constant RAY = 1e27;
 	uint256 internal constant INDEX_GAP = 123 * 1e23;
-	uint256 internal constant INDEX = RAY + INDEX_GAP; // ref: ReserveData.liquidityIndex
+	uint256 internal idx = RAY + INDEX_GAP; // ref: ReserveData.liquidityIndex
 
 	constructor(string memory _name, string memory _symbol) {
 		name = _name;
@@ -37,11 +37,16 @@ contract MockLToken is LToken {
 		lendingPool = _lendingPool;
 	}
 
+	function index() external view returns (uint256) {
+		return _index();
+	}
+
 	function _index() internal view returns (uint256) {
-		if (lendingPool == address(0)) {
-			return INDEX;
-		}
-		return ILendingPool(lendingPool).getReserveNormalizedIncome(address(this));
+		return idx;
+	}
+
+	function setIndex(uint256 _idx) external {
+		idx = _idx;
 	}
 
 	/**

@@ -151,7 +151,7 @@ contract Voter is Initializable {
 
 		for (uint256 i = 0; i < tokens.length; i++) {
 			LToken _lToken = LToken(tokens[i]);
-			tokenBalance[i] = _lToken.balanceOf(address(this));
+			tokenBalance[i] = _lToken.scaledBalanceOf(address(this));
 			toDistribute[i] = tokenBalance[i] - tokenLastBalance[i];
 			tokenLastBalance[i] = tokenBalance[i];
 		}
@@ -444,16 +444,28 @@ contract Voter is Initializable {
 	 * the total vote weight in each pool and claims the assigned fees
 	 * @param _lockerId The locker ID
 	 **/
-	function _claim(uint256 _lockerId) internal returns (uint256[] memory) {
+	function _claim(
+		uint256 _lockerId
+	) internal returns (ClaimableAmount[] memory) {
 		_checkpointToken();
 
-		(uint256 _lastClaimTime, uint256[] memory userDistribute) = _claimable(
-			_lockerId
-		);
+		(
+			uint256 _lastClaimTime,
+			ClaimableAmount[] memory userDistribute
+		) = _claimable(_lockerId);
 		lastClaimTime[_lockerId] = _lastClaimTime;
-		emit Claimed(_lockerId, userDistribute);
+		uint256[] memory userDistributeAmount = new uint256[](tokens.length);
+		for (uint256 i = 0; i < tokens.length; i++) {
+			userDistributeAmount[i] = userDistribute[i].amount;
+		}
+		emit Claimed(_lockerId, userDistributeAmount);
 
 		return userDistribute;
+	}
+
+	struct ClaimableAmount {
+		uint256 amount;
+		uint256 scaledAmount;
 	}
 
 	/**
@@ -463,13 +475,16 @@ contract Voter is Initializable {
 	 **/
 	function _claimable(
 		uint256 _lockerId
-	) internal view returns (uint256, uint256[] memory) {
+	) internal view returns (uint256, ClaimableAmount[] memory) {
 		uint256[] memory userDistribute = new uint256[](tokens.length);
 
 		uint256 t = lastClaimTime[_lockerId];
 		if (t == 0) t = START_TIME;
 		uint256 thisTerm = _roundDownToTerm(t);
 		uint256 roundedLastTokenTime = _roundDownToTerm(lastTokenTime);
+		ClaimableAmount[] memory claimableAmounts = new ClaimableAmount[](
+			tokens.length
+		);
 
 		for (uint256 j = 0; j < 105; j++) {
 			if (thisTerm >= roundedLastTokenTime) {
@@ -480,16 +495,24 @@ contract Voter is Initializable {
 				address _token = tokens[i];
 				address _pool = pools[_token];
 				if (poolWeights[_pool][thisTerm] > 0) {
-					userDistribute[i] +=
-						(tokensPerWeek[_token][thisTerm] *
-							votes[_lockerId][_pool][thisTerm]) /
-						poolWeights[_pool][thisTerm];
+					uint256 scaledDistribute = (tokensPerWeek[_token][thisTerm] *
+						votes[_lockerId][_pool][thisTerm]) / poolWeights[_pool][thisTerm];
+					uint256 currentIndex = ILendingPool(lendingPool)
+						.getReserveNormalizedIncome(
+							LToken(_token).UNDERLYING_ASSET_ADDRESS()
+						);
+					uint256 amount = scaledDistribute.rayMul(currentIndex);
+					userDistribute[i] += amount;
+					claimableAmounts[i] = ClaimableAmount({
+						amount: amount,
+						scaledAmount: scaledDistribute
+					});
 				}
 			}
 			thisTerm += TERM;
 		}
 
-		return (thisTerm, userDistribute);
+		return (thisTerm, claimableAmounts);
 	}
 
 	/**
@@ -500,9 +523,12 @@ contract Voter is Initializable {
 		uint256 _lockerId = Ve(_ve).ownerToId(_for);
 		require(_lockerId != 0, "No lock associated with address");
 
-		uint256[] memory scaledAmount = new uint256[](tokens.length);
-		(, scaledAmount) = _claimable(_lockerId);
-		return scaledAmount;
+		uint256[] memory claimables = new uint256[](tokens.length);
+		(, ClaimableAmount[] memory claimableAmounts) = _claimable(_lockerId);
+		for (uint256 i = 0; i < tokens.length; i++) {
+			claimables[i] = claimableAmounts[i].amount;
+		}
+		return claimables;
 	}
 
 	/**
@@ -520,17 +546,19 @@ contract Voter is Initializable {
 		uint256 _lockerId = Ve(_ve).ownerToId(_owner);
 		require(_lockerId != 0, "No lock associated with address");
 
-		uint256[] memory claimAmount = _claim(_lockerId);
+		ClaimableAmount[] memory claimAmount = _claim(_lockerId);
+		uint256[] memory claimAmounts = new uint256[](tokens.length);
 		for (uint256 i = 0; i < tokens.length; i++) {
-			if (claimAmount[i] != 0) {
+			if (claimAmount[i].amount != 0) {
 				require(
-					LToken(tokens[i]).transfer(_owner, claimAmount[i]),
+					LToken(tokens[i]).transfer(_owner, claimAmount[i].amount),
 					"fail to transfer ltoken"
 				);
-				tokenLastBalance[i] -= claimAmount[i];
+				tokenLastBalance[i] -= claimAmount[i].scaledAmount;
+				claimAmounts[i] = claimAmount[i].amount;
 			}
 		}
-		return claimAmount;
+		return claimAmounts;
 	}
 
 	/**
