@@ -49,7 +49,7 @@ const checkVoter = async (args: Args) => {
   const [currentTerm, tIndex, unitOfTerm, tokenList] = await Promise.all([
     instance.currentTermTimestamp().then((v) => v.toNumber()),
     instance.currentTermIndex().then((v) => v.toNumber()),
-    instance._term().then((v) => v.toNumber()),
+    instance.TERM().then((v) => v.toNumber()),
     instance.tokenList(),
   ])
   const lastTokenTime = (await instance.lastTokenTime()).toNumber()

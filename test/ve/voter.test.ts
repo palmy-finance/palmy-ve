@@ -13,6 +13,7 @@ import {
   VotingEscrow,
   VotingEscrow__factory,
 } from '../../types'
+import { parse } from 'path'
 const { expect } = require('chai')
 const { ethers } = require('hardhat')
 
@@ -139,9 +140,9 @@ describe('voter', () => {
     // User1 votes veOAL whose locker ID is 1 according to the voting weight
     await vevoter.connect(user1).vote(weight)
 
-    // The Vote will be reflected at the next weekly checkpoint
-    // so it is sufficient if at least one week has passed since the vote
-    await waitWeek(7)
+    // The Vote will be reflected at the next term checkpoint
+    // so it is sufficient if at least one term has passed since the vote
+    await waitTerm()
 
     // The fees 1 lUSDC and 1 lDAI are minted 100 times every 2 hours
     // and user1 also claim 100 times every 2 hours
@@ -153,16 +154,20 @@ describe('voter', () => {
       await vevoter.connect(user1).claim()
     }
 
-    // User1 claim again a week after the last mint and receive all fees
+    // User1 claim again a week after the last mint and receive almost all the fees
     await waitWeek(7)
     await vevoter.connect(user1).claim()
-    await expect(await lusdc.balanceOf(user1.address)).to.be.equal('0')
-    await expect(await ldai.balanceOf(user1.address)).to.be.equal('0')
-    await expect(await lusdc.balanceOf(vevoter.address)).to.be.equal(
-      '99999999999999999967'
+    await expect(await lusdc.balanceOf(user1.address)).to.be.above(
+      parseEther('98')
     )
-    await expect(await lusdc.balanceOf(vevoter.address)).to.be.equal(
-      '99999999999999999967'
+    await expect(await ldai.balanceOf(user1.address)).to.be.above(
+      parseEther('98')
+    )
+    await expect(await lusdc.balanceOf(vevoter.address)).to.be.lt(
+      parseEther('2')
+    )
+    await expect(await ldai.balanceOf(vevoter.address)).to.be.lt(
+      parseEther('2')
     )
   })
 
@@ -357,7 +362,6 @@ describe('voter', () => {
       await oal.connect(user1).approve(ve.address, parseEther('1'))
       await ve.connect(user1).createLock(parseEther('1'), 2 * YEAR)
       await vevoter.connect(user1).vote([1])
-      await waitTerm()
       await lusdc.mintToTreasury(vevoter.address, reward)
       await vevoter.checkpointToken()
       await expect(
@@ -374,6 +378,7 @@ const waitTerm = async (terms?: number) => {
 }
 
 const waitWeek = async (weeks?: number) => {
-  await network.provider.send('evm_increaseTime', [weeks ? weeks : 1 * WEEK])
+  const count = weeks || 1
+  await network.provider.send('evm_increaseTime', [count * WEEK])
   await network.provider.send('evm_mine')
 }

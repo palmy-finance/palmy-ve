@@ -60,10 +60,10 @@ const checkVoter = async (args: Args) => {
   const targets = [
     { label: '_ve', fn: _instance._ve },
     { label: 'lastTokenTime', fn: _instance.lastTokenTime },
-    { label: 'startTime', fn: _instance.startTime },
+    { label: 'startTime', fn: _instance.START_TIME },
     { label: 'minter', fn: _instance.minter },
-    { label: '_term', fn: _instance._term },
-    { label: 'maxVoteDuration', fn: _instance.maxVoteDuration },
+    { label: '_term', fn: _instance.TERM },
+    { label: 'maxVoteDuration', fn: _instance.MAX_VOTE_DURATION },
   ]
   for (const _v of targets) console.log(`${_v.label} ... ${await _v.fn()}`)
   const tokenList = await _instance.tokenList()

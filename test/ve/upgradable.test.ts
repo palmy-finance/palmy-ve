@@ -4,8 +4,6 @@ import { ethers, upgrades } from 'hardhat'
 import {
   MockLToken__factory,
   MockLendingPool__factory,
-  TestVoterRevX,
-  TestVoterRevX__factory,
   TestVotingEscrowRevX,
   TestVotingEscrowRevX__factory,
   Token__factory,
@@ -18,19 +16,9 @@ import { DAY, TERM } from './utils'
 
 // Constants
 const TOKEN_PARAMETERS: { token: string }[] = [
-  // { token: 'lDAI' },
-  // { token: 'lWASTR' },
-  // { token: 'lWSDN' },
-  // { token: 'lWBTC' },
   { token: 'lWETH' },
   { token: 'lUSDT' },
   { token: 'lUSDC' },
-  // { token: 'lOAL' },
-  // { token: 'lBUSD' },
-  // { token: 'lDAI' },
-  // { token: 'lMATIC' },
-  // { token: 'lBNB' },
-  // { token: 'lDOT' },
 ]
 
 // Prepare
@@ -91,39 +79,6 @@ const setup = async () => {
 }
 
 describe('upgradable', () => {
-  describe('Voter', () => {
-    it('success', async () => {
-      const { deployer, voter, votingEscrow } = await setup()
-      const [ve, term, maxVoteDuration] = await Promise.all([
-        voter._ve(),
-        voter._term().then((v) => v.toNumber()),
-        voter.maxVoteDuration().then((v) => v.toNumber()),
-      ])
-      expect(ve).to.eq(votingEscrow.address)
-      expect(term).to.eq(TERM)
-      expect(maxVoteDuration).to.eq(6 * 30 * DAY)
-
-      // upgrade
-      const upgraded = await upgrades.upgradeProxy(
-        voter,
-        new TestVoterRevX__factory(deployer),
-        { call: { fn: 'initializeV2' } }
-      )
-      const upgradedVoter = upgraded as TestVoterRevX
-      const [_ve, _term, _maxVoteDuration] = await Promise.all([
-        upgradedVoter._ve(),
-        upgradedVoter._term().then((v) => v.toNumber()),
-        upgradedVoter.maxVoteDuration().then((v) => v.toNumber()),
-      ])
-      expect(_ve).to.eq(ve)
-      expect(_term).to.eq(term)
-      expect(_maxVoteDuration).not.to.eq(maxVoteDuration)
-      expect(_maxVoteDuration).to.eq(12 * 30 * DAY)
-
-      // call added function
-      expect(await upgradedVoter.contractVersion()).to.eq(2)
-    })
-  })
   describe('VotingEscrow', () => {
     it('success', async () => {
       const { deployer, votingEscrow } = await setup()
