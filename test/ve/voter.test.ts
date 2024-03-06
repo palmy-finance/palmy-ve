@@ -280,21 +280,7 @@ describe('voter', () => {
       roundedLockEndtime,
     ].forEach(consoleLogTimestamp)
 
-    /// case1: vote period is OneDay
-
-    await vevoter.connect(user5).voteUntil(weight5, currentTimestamp + oneDay)
-    await expect(await vevoter.voteEndTime(lockerId)).to.be.equal(
-      currentTimestamp + oneDay
-    )
-
-    await expect(
-      await vevoter.votes(lockerId, lusdc.address, roundedOneWeek)
-    ).to.be.above(0)
-    await expect(
-      await vevoter.votedTotalVotingWeights(lockerId, roundedOneWeek)
-    ).to.be.above(0)
-
-    /// case2: vote period is oneTerm
+    // case1: vote period is oneTerm
     await vevoter.connect(user5).voteUntil(weight5, currentTimestamp + oneTerm)
     await expect(await vevoter.voteEndTime(lockerId)).to.be.equal(
       currentTimestamp + oneTerm
@@ -323,7 +309,7 @@ describe('voter', () => {
       await vevoter.votedTotalVotingWeights(lockerId, roundedOneWeek + oneTerm)
     ).to.be.equal(0)
 
-    /// case3: vote period is FourWeeks
+    // case2: vote period is FourWeeks
     await vevoter
       .connect(user5)
       .voteUntil(weight5, currentTimestamp + fourWeeks)
@@ -357,15 +343,20 @@ describe('voter', () => {
       )
     ).to.be.equal(0)
 
-    /// case4: vote period is OneYear
+    // case3: vote period is OneYear
     await expect(
       vevoter.connect(user5).voteUntil(weight5, currentTimestamp + oneYear)
     ).to.be.revertedWith('Over max vote end timestamp')
 
-    /// case5: the end of vote period is LockEndtime
+    // case4: the end of vote period is LockEndtime
     await expect(
       vevoter.connect(user5).voteUntil(weight5, lockEndtime)
     ).to.be.revertedWith('Over max vote end timestamp')
+
+    // case5: vote period is this term
+    await expect(
+      vevoter.connect(user5).voteUntil(weight5, currentTimestamp)
+    ).to.be.revertedWith("Can't vote for the past")
   })
   it('suspend token', async () => {
     await vevoter.connect(user1).vote([1, 1, 0])
@@ -385,10 +376,9 @@ describe('voter', () => {
       await _setUp()
       await oal.connect(user1).approve(ve.address, parseEther('1'))
       await ve.connect(user1).createLock(parseEther('1'), 2 * YEAR)
-      await waitForTx(await lusdc.mint(vevoter.address, parseEther('5')))
       await waitForTx(await vevoter.connect(user1).vote([1]))
-      await waitForTx(await lusdc.mint(vevoter.address, parseEther('5')))
       await waitTerm()
+      await waitForTx(await lusdc.mint(vevoter.address, parseEther('10')))
       await vevoter.checkpointToken()
       await waitTerm()
       await expect(await lusdc.balanceOf(vevoter.address)).to.be.equal(

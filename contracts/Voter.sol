@@ -379,6 +379,10 @@ contract Voter is Initializable {
 			_voteEndTimestamp <= block.timestamp + maxVoteDuration,
 			"Over max vote end timestamp"
 		);
+		require(
+			_voteEndTimestamp > _calculateBasisTermTsFromCurrentTs(),
+			"Can't vote for the past"
+		);
 		uint256 _lockerId = Ve(_ve).ownerToId(msg.sender);
 		require(_lockerId != 0, "No lock associated with address");
 		_vote(_lockerId, _weights, _voteEndTimestamp);
