@@ -13,6 +13,7 @@ import {
   VotingEscrow,
   VotingEscrow__factory,
 } from '../../types'
+import { ContractTransaction } from 'ethers'
 const { expect } = require('chai')
 const { ethers } = require('hardhat')
 
@@ -221,38 +222,21 @@ describe('voter', () => {
     await vevoter.connect(user4).claim()
     await waitWeek(5)
 
-    console.log(
-      'balance of lusdc at user2 address is %s',
-      await lusdc.balanceOf(user2.address)
-    )
-    console.log(
-      'balance of ldai  at user2 address is %s',
-      await ldai.balanceOf(user2.address)
-    )
-    console.log(
-      'balance of lusdc at user3 address is %s',
-      await lusdc.balanceOf(user3.address)
-    )
-    console.log(
-      'balance of ldai  at user3 address is %s',
-      await ldai.balanceOf(user3.address)
-    )
-    console.log(
-      'balance of lusdc at user4 address is %s',
-      await lusdc.balanceOf(user4.address)
-    )
-    console.log(
-      'balance of ldai  at user4 address is %s',
-      await ldai.balanceOf(user4.address)
-    )
-    console.log(
-      'balance of lusdc at vevoter address is %s',
-      await lusdc.balanceOf(vevoter.address)
-    )
-    console.log(
-      'balance of ldai at vevoter address is %s',
-      await ldai.balanceOf(vevoter.address)
-    )
+    const balances = await Promise.all([
+      lusdc.balanceOf(user2.address),
+      ldai.balanceOf(user2.address),
+      lusdc.balanceOf(user3.address),
+      ldai.balanceOf(user3.address),
+      lusdc.balanceOf(user4.address),
+      ldai.balanceOf(user4.address),
+    ])
+    for (const balance of balances) {
+      if (balances.indexOf(balance) == balances.length - 1) {
+        continue
+      }
+      const next = balances[balances.indexOf(balance) + 1]
+      await expect(balance).to.be.equal(next)
+    }
   })
 
   it('Check the end of vote period', async () => {
@@ -391,19 +375,40 @@ describe('voter', () => {
     )
   })
   describe('distribution amount', async () => {
-    it('if Ltoken scaled amount to distribute is 10 and liquidity index is 1, then user can claim 10', async () => {
-      // setup
+    const _setUp = async () => {
       await setup()
+      await ve.setVoter(vevoter.address)
       await await vevoter.connect(distributor).addToken(lusdc.address)
       await lusdc.setLendingPool(lendingPool.address)
-      await lusdc.burn(vevoter.address, await lusdc.balanceOf(vevoter.address))
-      await lusdc.mint(vevoter.address, parseEther('10'))
+    }
+    it('if Ltoken scaled amount to distribute is 10 and liquidity index is 1, then user can claim 10', async () => {
+      await _setUp()
       await oal.connect(user1).approve(ve.address, parseEther('1'))
       await ve.connect(user1).createLock(parseEther('1'), 2 * YEAR)
-      await vevoter.connect(user1).vote([1])
+      await waitForTx(await lusdc.mint(vevoter.address, parseEther('5')))
+      await waitForTx(await vevoter.connect(user1).vote([1]))
+      await waitForTx(await lusdc.mint(vevoter.address, parseEther('5')))
+      await waitTerm()
+      await vevoter.checkpointToken()
+      await waitTerm()
+      await expect(await lusdc.balanceOf(vevoter.address)).to.be.equal(
+        parseEther('10')
+      )
+      await expect(
+        (
+          await vevoter.connect(user1).claimableFor(await user1.getAddress())
+        )[0]
+      ).to.be.equal(parseEther('10'))
     })
   })
 })
+
+const waitForTx = async (tx: ContractTransaction) => {
+  await tx.wait(1)
+}
+const waitTerm = async (terms?: number) => {
+  await waitWeek((terms || 1) * 2)
+}
 
 const waitWeek = async (weeks?: number) => {
   await network.provider.send('evm_increaseTime', [weeks ? weeks : 1 * WEEK])
