@@ -524,14 +524,7 @@ contract Voter is Initializable {
 		for (uint256 i = 0; i < tokens.length; i++) {
 			if (claimAmount[i] != 0) {
 				require(
-					LToken(tokens[i]).transfer(
-						_owner,
-						claimAmount[i].rayDiv(
-							ILendingPool(lendingPool).getReserveNormalizedIncome(
-								LToken(tokens[i]).UNDERLYING_ASSET_ADDRESS()
-							)
-						)
-					),
+					LToken(tokens[i]).transfer(_owner, claimAmount[i]),
 					"fail to transfer ltoken"
 				);
 				tokenLastBalance[i] -= claimAmount[i];
