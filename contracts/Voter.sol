@@ -298,8 +298,8 @@ contract Voter is Initializable {
 		_reset(_lockerId);
 		_checkpointToken();
 
-		uint256 thisWeek = _calculateBasisTermTsFromCurrentTs();
-		lastVoteTime[_lockerId] = thisWeek;
+		uint256 thisVotingTerm = _calculateBasisTermTsFromCurrentTs();
+		lastVoteTime[_lockerId] = thisVotingTerm;
 
 		uint256 maxUserEpoch = Ve(_ve).userPointEpoch(_lockerId);
 		Ve.Point memory pt = Ve(_ve).userPointHistory(_lockerId, maxUserEpoch);
@@ -313,11 +313,11 @@ contract Voter is Initializable {
 		}
 
 		voteEndTime[_lockerId] = _voteEndTimestamp;
-		uint256 _maxj = (_voteEndTimestamp - thisWeek) / _term;
+		uint256 _maxj = (_voteEndTimestamp - thisVotingTerm) / _term;
 		for (uint256 j = 0; j < _maxj + 1; j++) {
 			int256 balanceOf = int256(pt.bias) -
 				int256(pt.slope) *
-				int256(thisWeek - pt.ts);
+				int256(thisVotingTerm - pt.ts);
 			if (balanceOf <= 0) break;
 
 			for (uint256 i = 0; i < tokens.length; i++) {
@@ -325,14 +325,14 @@ contract Voter is Initializable {
 				if (weights[_lockerId][_pool] == 0) continue;
 				uint256 _poolWeight = (uint256(balanceOf) * weights[_lockerId][_pool]) /
 					_totalVoteWeight;
-				votes[_lockerId][_pool][thisWeek] = _poolWeight;
-				poolWeights[_pool][thisWeek] += _poolWeight;
-				votedTotalVotingWeights[_lockerId][thisWeek] += _poolWeight;
-				totalWeight[thisWeek] += _poolWeight;
+				votes[_lockerId][_pool][thisVotingTerm] = _poolWeight;
+				poolWeights[_pool][thisVotingTerm] += _poolWeight;
+				votedTotalVotingWeights[_lockerId][thisVotingTerm] += _poolWeight;
+				totalWeight[thisVotingTerm] += _poolWeight;
 
 				emit Voted(msg.sender, _lockerId, _pool, _poolWeight);
 			}
-			thisWeek += _term;
+			thisVotingTerm += _term;
 		}
 
 		uint256 startWeek = _calculateBasisTermTsFromCurrentTs();
@@ -478,28 +478,28 @@ contract Voter is Initializable {
 
 		uint256 t = lastClaimTime[_lockerId];
 		if (t == 0) t = startTime;
-		uint256 thisWeek = _roundDownToTerm(t);
+		uint256 thisTerm = _roundDownToTerm(t);
 		uint256 roundedLastTokenTime = _roundDownToTerm(lastTokenTime);
 
 		for (uint256 j = 0; j < 105; j++) {
-			if (thisWeek >= roundedLastTokenTime) {
+			if (thisTerm >= roundedLastTokenTime) {
 				break;
 			}
 
 			for (uint256 i = 0; i < tokens.length; i++) {
 				address _token = tokens[i];
 				address _pool = pools[_token];
-				if (poolWeights[_pool][thisWeek] > 0) {
+				if (poolWeights[_pool][thisTerm] > 0) {
 					userDistribute[i] +=
-						(tokensPerWeek[_token][thisWeek] *
-							votes[_lockerId][_pool][thisWeek]) /
-						poolWeights[_pool][thisWeek];
+						(tokensPerWeek[_token][thisTerm] *
+							votes[_lockerId][_pool][thisTerm]) /
+						poolWeights[_pool][thisTerm];
 				}
 			}
-			thisWeek += _term;
+			thisTerm += _term;
 		}
 
-		return (thisWeek, userDistribute);
+		return (thisTerm, userDistribute);
 	}
 
 	/**

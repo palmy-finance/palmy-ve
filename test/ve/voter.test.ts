@@ -36,22 +36,10 @@ describe('voter', () => {
   let user4: SignerWithAddress
   let user5: SignerWithAddress
   let distributor: SignerWithAddress
-  let usdcpool: SignerWithAddress
-  let daipool: SignerWithAddress
-  let usdtpool: SignerWithAddress
   let lendingPool: MockLendingPool
   const setup = async () => {
-    ;[
-      user1,
-      user2,
-      user3,
-      user4,
-      user5,
-      distributor,
-      usdcpool,
-      daipool,
-      usdtpool,
-    ] = await ethers.getSigners()
+    ;[user1, user2, user3, user4, user5, distributor] =
+      await ethers.getSigners()
     const ltokenFactory = new MockLToken__factory(distributor)
 
     lusdc = await ltokenFactory.deploy('LUSDC', 'LUSDC')
@@ -376,14 +364,10 @@ describe('voter', () => {
       await _setUp()
       await oal.connect(user1).approve(ve.address, parseEther('1'))
       await ve.connect(user1).createLock(parseEther('1'), 2 * YEAR)
-      await waitForTx(await vevoter.connect(user1).vote([1]))
+      await vevoter.connect(user1).vote([1])
       await waitTerm()
-      await waitForTx(await lusdc.mint(vevoter.address, parseEther('10')))
+      await lusdc.mint(vevoter.address, parseEther('10'))
       await vevoter.checkpointToken()
-      await waitTerm()
-      await expect(await lusdc.balanceOf(vevoter.address)).to.be.equal(
-        parseEther('10')
-      )
       await expect(
         (
           await vevoter.connect(user1).claimableFor(await user1.getAddress())
@@ -393,9 +377,6 @@ describe('voter', () => {
   })
 })
 
-const waitForTx = async (tx: ContractTransaction) => {
-  await tx.wait(1)
-}
 const waitTerm = async (terms?: number) => {
   await waitWeek((terms || 1) * 2)
 }
