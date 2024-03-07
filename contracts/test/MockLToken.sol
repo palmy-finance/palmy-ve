@@ -20,8 +20,6 @@ contract MockLToken is LToken {
 	string public name;
 	string public symbol;
 
-	address public lendingPool;
-
 	uint256 internal constant RAY = 1e27;
 	uint256 internal constant INDEX_GAP = 123 * 1e23;
 	uint256 internal idx = RAY + INDEX_GAP; // ref: ReserveData.liquidityIndex
@@ -32,10 +30,6 @@ contract MockLToken is LToken {
 	}
 
 	using WadRayMath for uint256;
-
-	function setLendingPool(address _lendingPool) external {
-		lendingPool = _lendingPool;
-	}
 
 	function index() external view returns (uint256) {
 		return _index();
@@ -101,16 +95,13 @@ contract MockLToken is LToken {
 	 * @param amount The amount getting transferred
 	 **/
 	function _transfer(address from, address to, uint256 amount) internal {
-		uint256 index = _index();
 		uint256 fromBalance = _balances[from];
 		require(
-			fromBalance >= amount.rayDiv(index),
+			fromBalance >= amount.rayDiv(_index()),
 			"ERC20: transfer amount exceeds balance"
 		);
-		unchecked {
-			_balances[from] -= amount.rayDiv(index);
-		}
-		_balances[to] += amount.rayDiv(index);
+		_balances[from] -= amount.rayDiv(_index());
+		_balances[to] += amount.rayDiv(_index());
 	}
 
 	function approve(

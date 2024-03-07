@@ -6,6 +6,7 @@ import "./interfaces/Ve.sol";
 import "./interfaces/ILendingPool.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "./libraries/WadRayMath.sol";
+import "hardhat/console.sol";
 
 /**
  * @title Voter contract
@@ -476,8 +477,6 @@ contract Voter is Initializable {
 	function _claimable(
 		uint256 _lockerId
 	) internal view returns (uint256, ClaimableAmount[] memory) {
-		uint256[] memory userDistribute = new uint256[](tokens.length);
-
 		uint256 t = lastClaimTime[_lockerId];
 		if (t == 0) t = START_TIME;
 		uint256 thisTerm = _roundDownToTerm(t);
@@ -494,20 +493,23 @@ contract Voter is Initializable {
 			for (uint256 i = 0; i < tokens.length; i++) {
 				address _token = tokens[i];
 				address _pool = pools[_token];
-				if (poolWeights[_pool][thisTerm] > 0) {
-					uint256 scaledDistribute = (tokensPerWeek[_token][thisTerm] *
-						votes[_lockerId][_pool][thisTerm]) / poolWeights[_pool][thisTerm];
-					uint256 currentIndex = ILendingPool(lendingPool)
-						.getReserveNormalizedIncome(
-							LToken(_token).UNDERLYING_ASSET_ADDRESS()
-						);
-					uint256 amount = scaledDistribute.rayMul(currentIndex);
-					userDistribute[i] += amount;
-					claimableAmounts[i] = ClaimableAmount({
-						amount: amount,
-						scaledAmount: scaledDistribute
-					});
-				}
+				if (poolWeights[_pool][thisTerm] == 0) continue;
+				uint256 distributionTotal = tokensPerWeek[_token][thisTerm];
+				uint256 userVote = votes[_lockerId][_pool][thisTerm];
+				uint256 totalVotes = poolWeights[_pool][thisTerm];
+				uint256 scaledDistribute = (distributionTotal * userVote) / totalVotes;
+				uint256 currentIndex = ILendingPool(lendingPool)
+					.getReserveNormalizedIncome(
+						LToken(_token).UNDERLYING_ASSET_ADDRESS()
+					);
+				uint256 amount = scaledDistribute.rayMul(currentIndex);
+				claimableAmounts[i] = ClaimableAmount({
+					amount: amount,
+					scaledAmount: scaledDistribute
+				});
+				console.log("tokensPerWeek: %s", distributionTotal);
+				console.log("votes: %s", userVote);
+				console.log("poolWeights: %s", totalVotes);
 			}
 			thisTerm += TERM;
 		}
@@ -549,14 +551,13 @@ contract Voter is Initializable {
 		ClaimableAmount[] memory claimAmount = _claim(_lockerId);
 		uint256[] memory claimAmounts = new uint256[](tokens.length);
 		for (uint256 i = 0; i < tokens.length; i++) {
-			if (claimAmount[i].amount != 0) {
-				require(
-					LToken(tokens[i]).transfer(_owner, claimAmount[i].amount),
-					"fail to transfer ltoken"
-				);
-				tokenLastBalance[i] -= claimAmount[i].scaledAmount;
-				claimAmounts[i] = claimAmount[i].amount;
-			}
+			if (claimAmount[i].amount == 0) continue;
+			tokenLastBalance[i] -= claimAmount[i].scaledAmount;
+			claimAmounts[i] = claimAmount[i].amount;
+			require(
+				LToken(tokens[i]).transfer(_owner, claimAmount[i].amount),
+				"fail to transfer ltoken"
+			);
 		}
 		return claimAmounts;
 	}
@@ -593,7 +594,7 @@ contract Voter is Initializable {
 	 * @param _ts timestamp
 	 * @return timestamp of this term
 	 **/
-	function _roundDownToTerm(uint256 _ts) internal view returns (uint256) {
+	function _roundDownToTerm(uint256 _ts) internal pure returns (uint256) {
 		return (_ts / TERM) * TERM;
 	}
 }

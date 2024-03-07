@@ -2,6 +2,7 @@ import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
 import { parseEther } from 'ethers/lib/utils'
 import { network, upgrades } from 'hardhat'
 import {
+  LToken,
   MockLToken,
   MockLToken__factory,
   MockLendingPool,
@@ -13,7 +14,7 @@ import {
   VotingEscrow,
   VotingEscrow__factory,
 } from '../../types'
-import { parse } from 'path'
+import { BigNumber } from 'ethers'
 const { expect } = require('chai')
 const { ethers } = require('hardhat')
 
@@ -71,6 +72,25 @@ describe('voter', () => {
     ])) as Voter
     await vevoter.deployTransaction.wait()
   }
+
+  const mintToTreasury = async (token: MockLToken, amount: BigNumber) => {
+    await mintLToken(token, vevoter.address, amount)
+  }
+
+  const mintLToken = async (
+    token: MockLToken,
+    to: string,
+    amount: BigNumber
+  ) => {
+    await token.mint(to, amount)
+  }
+
+  const rayMul = (a: BigNumber, b: BigNumber) => {
+    const ray = BigNumber.from(10).pow(27)
+    const halfRay = ray.div(2)
+    return a.mul(b).add(halfRay).div(ray)
+  }
+
   before(async () => {
     await setup()
   })
@@ -109,18 +129,6 @@ describe('voter', () => {
     await vevoter.connect(distributor).addToken(lusdt.address)
   })
 
-  // it('Sets a additional pool: The number of pools should be increased by one after excuting addPool()', async () => {
-  //   const token = lusdt.address
-  //   const wrongPool = usdcpool.address
-  //   await vevoter.connect(distributor).addPool(token, wrongPool)
-  // })
-
-  // it('Updates a wrong pool', async () => {
-  //   const token = lusdt.address
-  //   const pool = usdtpool.address
-  //   await vevoter.connect(distributor).updatePool(token, pool)
-  // })
-
   it('Confirm that the pools and the tokens are set correctly', async () => {
     expect(await vevoter.pools(lusdc.address)).to.be.equal(lusdc.address)
     expect(await vevoter.pools(ldai.address)).to.be.equal(ldai.address)
@@ -134,7 +142,7 @@ describe('voter', () => {
     )
   })
 
-  it('Distribute 100 OAL to user1', async () => {
+  it('claim', async () => {
     // Sets voting weight of user1 ([lusdc, ldai, lusdt])
     let weight = [1, 1, 0]
     // User1 votes veOAL whose locker ID is 1 according to the voting weight
@@ -147,27 +155,26 @@ describe('voter', () => {
     // The fees 1 lUSDC and 1 lDAI are minted 100 times every 2 hours
     // and user1 also claim 100 times every 2 hours
     for (let i = 0; i < 100; i++) {
-      await lusdc.mintToTreasury(vevoter.address, parseEther('1'))
-      await ldai.mintToTreasury(vevoter.address, parseEther('1'))
-      await network.provider.send('evm_increaseTime', [2 * HOUR])
-      await network.provider.send('evm_mine')
+      await mintToTreasury(lusdc, parseEther('1'))
+      await mintToTreasury(ldai, parseEther('1'))
       await vevoter.connect(user1).claim()
+      await waitFor(2 * HOUR)
     }
 
     // User1 claim again a week after the last mint and receive almost all the fees
-    await waitWeek(7)
+    await waitTerm()
     await vevoter.connect(user1).claim()
     await expect(await lusdc.balanceOf(user1.address)).to.be.above(
-      parseEther('98')
+      parseEther('99')
     )
     await expect(await ldai.balanceOf(user1.address)).to.be.above(
-      parseEther('98')
+      parseEther('99')
     )
     await expect(await lusdc.balanceOf(vevoter.address)).to.be.lt(
-      parseEther('2')
+      parseEther('1')
     )
     await expect(await ldai.balanceOf(vevoter.address)).to.be.lt(
-      parseEther('2')
+      parseEther('1')
     )
   })
 
@@ -178,12 +185,10 @@ describe('voter', () => {
   })
 
   it('Distribute fees to user1, user2, and user3 with same voting weight: The distibuted fees should be the same amount for the users', async () => {
-    let weight2 = [1, 1, 0]
-    let weight3 = [1, 1, 0]
-    let weight4 = [1, 1, 0]
-    await vevoter.connect(user2).vote(weight2)
-    await vevoter.connect(user3).vote(weight3)
-    await vevoter.connect(user4).vote(weight4)
+    let weight = [1, 1, 0]
+    await vevoter.connect(user2).vote(weight)
+    await vevoter.connect(user3).vote(weight)
+    await vevoter.connect(user4).vote(weight)
 
     // The Vote will be reflected at the next weekly checkpoint
     // so it is sufficient if at least one week has passed since the vote
@@ -191,12 +196,12 @@ describe('voter', () => {
     await network.provider.send('evm_mine')
 
     // 100 lUSDC and 100 lDAI are minted to Voter contract
-    await lusdc.mintToTreasury(vevoter.address, parseEther('100'))
-    await ldai.mintToTreasury(vevoter.address, parseEther('100'))
+    await mintToTreasury(lusdc, parseEther('100'))
+    await mintToTreasury(ldai, parseEther('100'))
 
     // User2, user3, and user4 will claim at the differnt time
     await vevoter.checkpointToken()
-    await waitWeek()
+    await waitTerm(2)
     await vevoter.checkpointToken()
     await waitWeek()
     await vevoter.connect(user2).claim()
@@ -228,10 +233,8 @@ describe('voter', () => {
     let lockerId = await ve.ownerToId(user5.address)
     await waitWeek()
 
-    const oneDay = 1 * DAY
     const oneTerm = 7 * DAY * 2
     const fourWeeks = 4 * WEEK
-    const halfYear = 6 * fourWeeks
     const oneYear = 1 * YEAR
     const lockEndtime = (await ve.lockedEnd(lockerId)).toNumber()
 
@@ -239,31 +242,10 @@ describe('voter', () => {
     const block = await ethers.provider.getBlock(blockNum)
     const currentTimestamp = block.timestamp
 
-    let roundedTimestamp = Math.floor(currentTimestamp / oneTerm) * oneTerm
-    let roundedOneDay =
-      Math.floor((currentTimestamp + oneDay) / oneTerm) * oneTerm
     let roundedOneWeek =
       Math.floor((currentTimestamp + oneTerm) / oneTerm) * oneTerm
     let roundedFourWeeks =
       Math.floor((currentTimestamp + fourWeeks) / oneTerm) * oneTerm
-    let roundedHalfYear =
-      Math.floor((currentTimestamp + halfYear) / oneTerm) * oneTerm
-    let roundedOneYear =
-      Math.floor((currentTimestamp + oneYear) / oneTerm) * oneTerm
-    let roundedLockEndtime = Math.floor(lockEndtime / oneTerm) * oneTerm
-
-    const consoleLogTimestamp = (timestamp: number) =>
-      console.log(`${new Date(timestamp * 1000).toISOString()} (${timestamp})`)
-    ;[
-      roundedTimestamp,
-      roundedOneDay,
-      roundedOneWeek,
-      roundedFourWeeks,
-      roundedHalfYear,
-      roundedOneYear,
-      roundedLockEndtime,
-    ].forEach(consoleLogTimestamp)
-
     // case1: vote period is oneTerm
     await vevoter.connect(user5).voteUntil(weight5, currentTimestamp + oneTerm)
     await expect(await vevoter.voteEndTime(lockerId)).to.be.equal(
@@ -276,15 +258,6 @@ describe('voter', () => {
     await expect(
       await vevoter.votedTotalVotingWeights(lockerId, roundedOneWeek)
     ).to.be.above(0)
-
-    console.log(
-      'votes at roundedOneWeek is %s',
-      await vevoter.votes(lockerId, lusdc.address, roundedOneWeek)
-    )
-    console.log(
-      'votedTotalVotingWeights at roundedOneWeek is %s',
-      await vevoter.votedTotalVotingWeights(lockerId, roundedOneWeek)
-    )
 
     await expect(
       await vevoter.votes(lockerId, lusdc.address, roundedOneWeek + oneTerm)
@@ -307,15 +280,6 @@ describe('voter', () => {
     await expect(
       await vevoter.votedTotalVotingWeights(lockerId, roundedFourWeeks)
     ).to.be.above(0)
-
-    console.log(
-      'votes at roundedFourWeeks is %s',
-      await vevoter.votes(lockerId, lusdc.address, roundedFourWeeks)
-    )
-    console.log(
-      'votedTotalVotingWeights at roundedFourWeeks is %s',
-      await vevoter.votedTotalVotingWeights(lockerId, roundedFourWeeks)
-    )
 
     await expect(
       await vevoter.votes(lockerId, lusdc.address, roundedFourWeeks + oneTerm)
@@ -353,8 +317,7 @@ describe('voter', () => {
     const _setUp = async () => {
       await setup()
       await ve.setVoter(vevoter.address)
-      await await vevoter.connect(distributor).addToken(lusdc.address)
-      await lusdc.setLendingPool(lendingPool.address)
+      await vevoter.connect(distributor).addToken(lusdc.address)
     }
     it('if Ltoken scaled amount to distribute is 10 and liquidity index is 1, then user can claim 10', async () => {
       await _setUp()
@@ -362,13 +325,14 @@ describe('voter', () => {
       await oal.connect(user1).approve(ve.address, parseEther('1'))
       await ve.connect(user1).createLock(parseEther('1'), 2 * YEAR)
       await vevoter.connect(user1).vote([1])
-      await lusdc.mintToTreasury(vevoter.address, reward)
+      // vote is valid after 1 term
+      await waitTerm()
+      await mintToTreasury(lusdc, reward)
+      await waitTerm()
       await vevoter.checkpointToken()
-      await expect(
-        (
-          await vevoter.connect(user1).claimableFor(await user1.getAddress())
-        )[0]
-      ).to.be.equal(reward)
+      await expect((await vevoter.connect(user1).claimable())[0]).to.be.equal(
+        reward
+      )
     })
   })
 })
@@ -379,6 +343,10 @@ const waitTerm = async (terms?: number) => {
 
 const waitWeek = async (weeks?: number) => {
   const count = weeks || 1
-  await network.provider.send('evm_increaseTime', [count * WEEK])
+  await waitFor(count * WEEK)
+}
+
+const waitFor = async (seconds: number) => {
+  await network.provider.send('evm_increaseTime', [seconds])
   await network.provider.send('evm_mine')
 }
