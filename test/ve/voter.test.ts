@@ -85,12 +85,6 @@ describe('voter', () => {
     await token.mint(to, amount)
   }
 
-  const rayMul = (a: BigNumber, b: BigNumber) => {
-    const ray = BigNumber.from(10).pow(27)
-    const halfRay = ray.div(2)
-    return a.mul(b).add(halfRay).div(ray)
-  }
-
   before(async () => {
     await setup()
   })
@@ -319,7 +313,7 @@ describe('voter', () => {
       await ve.setVoter(vevoter.address)
       await vevoter.connect(distributor).addToken(lusdc.address)
     }
-    it('if Ltoken scaled amount to distribute is 10 and liquidity index is 1, then user can claim 10', async () => {
+    it('if total reward is 10USDC, then user can claim 10', async () => {
       await _setUp()
       const reward = parseEther('10')
       await oal.connect(user1).approve(ve.address, parseEther('1'))
@@ -327,11 +321,33 @@ describe('voter', () => {
       await vevoter.connect(user1).vote([1])
       // vote is valid after 1 term
       await waitTerm()
+      await vevoter.checkpointToken()
       await mintToTreasury(lusdc, reward)
+      await vevoter.checkpointToken()
       await waitTerm()
       await vevoter.checkpointToken()
       await expect((await vevoter.connect(user1).claimable())[0]).to.be.equal(
         reward
+      )
+    })
+    it('if total reward is 10 USDC and liquidity index grows 1.5 times after checkpoint, then user can claim 15', async () => {
+      await _setUp()
+      const reward = parseEther('10')
+      const multiplier = (a: BigNumber) => a.mul('15').div('10')
+      await oal.connect(user1).approve(ve.address, parseEther('1'))
+      await ve.connect(user1).createLock(parseEther('1'), 2 * YEAR)
+      await vevoter.connect(user1).vote([1])
+      // vote is valid after 1 term
+      await waitTerm()
+      await vevoter.checkpointToken()
+      await mintToTreasury(lusdc, reward)
+      await vevoter.checkpointToken()
+      await waitTerm()
+      await vevoter.checkpointToken()
+      // liquidity index grows 1.5 times
+      await lusdc.setIndex(multiplier(await lusdc.index()))
+      await expect((await vevoter.connect(user1).claimable())[0]).to.be.equal(
+        multiplier(reward)
       )
     })
   })

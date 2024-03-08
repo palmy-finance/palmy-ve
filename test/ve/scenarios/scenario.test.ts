@@ -12,27 +12,15 @@ import {
   Voter,
   Voter__factory,
   VotingEscrow,
-  VotingEscrowV2Rev3,
-  VotingEscrowV2Rev3__factory,
   VotingEscrow__factory,
 } from '../../../types'
 import { HOUR, multiTransferOal, TERM, YEAR } from '../utils'
 
 // Constants
 const TOKEN_PARAMETERS: { token: string }[] = [
-  // { token: 'lDAI' },
-  // { token: 'lWASTR' },
-  // { token: 'lWSDN' },
-  // { token: 'lWBTC' },
   { token: 'lWETH' },
   { token: 'lUSDT' },
   { token: 'lUSDC' },
-  // { token: 'lOAL' },
-  // { token: 'lBUSD' },
-  // { token: 'lDAI' },
-  // { token: 'lMATIC' },
-  // { token: 'lBNB' },
-  // { token: 'lDOT' },
 ]
 
 // Prepare
@@ -58,22 +46,17 @@ const setup = async () => {
   )
   await oal.deployTransaction.wait()
 
-  const _votingEscrow = (await upgrades.deployProxy(
+  const votingEscrow = (await upgrades.deployProxy(
     new VotingEscrow__factory(deployer),
     [oal.address]
   )) as VotingEscrow
-  await _votingEscrow.deployTransaction.wait()
-  const veV2Rev3 = (await upgrades.upgradeProxy(
-    _votingEscrow,
-    new VotingEscrowV2Rev3__factory(deployer),
-    { call: { fn: 'initializeV2Rev3' } }
-  )) as VotingEscrowV2Rev3
-  await veV2Rev3.deployTransaction.wait()
+  await votingEscrow.deployTransaction.wait()
+
   const lendingPool = await new MockLendingPool__factory(deployer).deploy()
 
   const voter = (await upgrades.deployProxy(new Voter__factory(deployer), [
     lendingPool.address,
-    veV2Rev3.address,
+    votingEscrow.address,
   ])) as Voter
   await voter.deployTransaction.wait()
 
@@ -85,13 +68,13 @@ const setup = async () => {
     const tx = await voter.addToken(token)
     await tx.wait()
   }
-  const tx = await veV2Rev3.setVoter(voter.address)
+  const tx = await votingEscrow.setVoter(voter.address)
   await tx.wait()
 
   return {
     provider: ethers.provider,
     oal,
-    votingEscrow: veV2Rev3,
+    votingEscrow: votingEscrow,
     voter,
     deployer,
     users: rest,
@@ -182,10 +165,6 @@ describe('Scenario: vote -> distribute -> claim bonus (protocol fee)', () => {
           voter.tokensPerWeek(v, ts).then((v) => formatEther(v))
         )
       )
-      console.log(`# term: ${new Date(ts * 1000).toISOString()}`)
-      console.log(`votes         : ${votes}`)
-      console.log(`poolWeights   : ${poolWeights}`)
-      console.log(`tokensPerWeeks: ${tokensPerWeeks}`)
       return {
         votes,
         poolWeights,
@@ -194,8 +173,6 @@ describe('Scenario: vote -> distribute -> claim bonus (protocol fee)', () => {
     }
     const checkClaimable = async () => {
       const claimable = await voter.claimableFor(user.address)
-      const _claimable = claimable.map((v) => formatEther(v))
-      console.log(`claimable     : ${_claimable}`)
       return claimable.map((v) => formatEther(v))
     }
     const voterStatuses = async () => {
@@ -249,7 +226,6 @@ describe('Scenario: vote -> distribute -> claim bonus (protocol fee)', () => {
 
         await callCheckpoints()
         const before = await voterStatuses()
-        console.log()
         // about votes
         before.tInitial.votes.map((v) => expect(Number(v)).to.eq(0)) // not included in current term
         before.t1.votes.map((v) => expect(Number(v)).to.greaterThan(0))
@@ -502,7 +478,7 @@ describe.only('Scenario: vote after some terms passed & add new token', () => {
   let deployer: SignerWithAddress
   let oal: Token
   let voter: Voter
-  let votingEscrow: VotingEscrowV2Rev3
+  let votingEscrow: VotingEscrow
   let user: SignerWithAddress
   let mockLTokenAddresses: string[]
   let checkVote: (
@@ -715,7 +691,7 @@ describe.only('Scenario: vote after some terms passed & add new token', () => {
       mockLTokenAddresses
     )
     for (const tokensPerWeek of result_2_0.tokensPerWeeks)
-      expect(Number(tokensPerWeek)).to.eq(0)
+      expect(Number(tokensPerWeek)).to.above(0)
     const result_2_1 = await checkVote(
       lockerId,
       initialTerm + TERM,
@@ -772,19 +748,17 @@ describe.only('Scenario: vote after some terms passed & add new token', () => {
 
     const tokenList = await voter.tokenList()
     const currentTerm = (await voter.currentTermTimestamp()).toNumber()
+    const nextTermStart = currentTerm + 1 * TERM + 1
 
     // vote
-    //// revert if args length != ltokens count in voter
     await expect(
-      voter.connect(user).voteUntil([1, 0, 3], currentTerm + 1 * TERM)
+      voter.connect(user).voteUntil([1, 0, 3], nextTermStart)
     ).to.revertedWith('Must be the same length: tokens, _weight')
     await expect(
-      voter.connect(user).voteUntil([1, 0, 3, 0], currentTerm + 1 * TERM)
+      voter.connect(user).voteUntil([1, 0, 3, 0], nextTermStart)
     ).to.revertedWith('Must be the same length: tokens, _weight')
     //// success
-    tx = await voter
-      .connect(user)
-      .voteUntil([1, 0, 3, 0, 1], currentTerm + 1 * TERM)
+    tx = await voter.connect(user).voteUntil([1, 0, 3, 0, 1], nextTermStart)
     await tx.wait()
 
     const lockerId = (
@@ -849,7 +823,7 @@ describe.only('Scenario: vote after some terms passed & add new token', () => {
     await (await voter.connect(user).claim()).wait()
 
     // process next term & increase distributions & checkpoint
-    ethers.provider.send('evm_mine', [currentTerm + 2 * TERM - 1 * HOUR])
+    await ethers.provider.send('evm_mine', [currentTerm + 2 * TERM - 1 * HOUR])
     await transfersLTokens([
       { ltoken: tokenList[0], amount: 100 },
       { ltoken: tokenList[1], amount: 1000 },
@@ -919,7 +893,7 @@ describe.only('Scenario: vote after some terms passed & add new token', () => {
     await (await voter.connect(user).claim()).wait()
 
     // check .claimable
-    ethers.provider.send('evm_mine', [currentTerm + 2 * TERM + 1])
+    await ethers.provider.send('evm_mine', [currentTerm + 2 * TERM + 1])
     console.log(
       `# current time: ${new Date(
         (await _current(ethers.provider)).ts * 1000

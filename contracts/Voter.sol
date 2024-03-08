@@ -6,7 +6,6 @@ import "./interfaces/Ve.sol";
 import "./interfaces/ILendingPool.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "./libraries/WadRayMath.sol";
-import "hardhat/console.sol";
 
 /**
  * @title Voter contract
@@ -507,9 +506,6 @@ contract Voter is Initializable {
 					amount: amount,
 					scaledAmount: scaledDistribute
 				});
-				console.log("tokensPerWeek: %s", distributionTotal);
-				console.log("votes: %s", userVote);
-				console.log("poolWeights: %s", totalVotes);
 			}
 			thisTerm += TERM;
 		}
