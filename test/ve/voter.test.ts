@@ -15,7 +15,7 @@ import {
   VotingEscrow__factory,
 } from '../../types'
 import { BigNumber } from 'ethers'
-const { expect } = require('chai')
+import { expect } from 'chai'
 const { ethers } = require('hardhat')
 
 // Constants
@@ -349,6 +349,55 @@ describe('voter', () => {
       await expect((await vevoter.connect(user1).claimable())[0]).to.be.equal(
         multiplier(reward)
       )
+    })
+    describe('if reward for term 1 is 10 USDC', async () => {
+      it('user1 vote 1 in term 1 and checkpoint did not be triggered, then the user can claim approximately 10/5 USDC for term 2', async () => {
+        await _setUp()
+        const reward = parseEther('10')
+        await oal.connect(user1).approve(ve.address, parseEther('1'))
+        await ve.connect(user1).createLock(parseEther('1'), 2 * YEAR)
+        await vevoter.connect(user1).vote([1])
+        await vevoter.checkpointToken()
+        // reward for term 1
+        await mintToTreasury(lusdc, reward)
+        // vote is valid after 1 term, so user1 can claim 0 for term 1
+        expect((await vevoter.connect(user1).claimable())[0]).to.be.equal(
+          parseEther('0')
+        )
+        await waitTerm()
+        await waitTerm()
+        await vevoter.checkpointToken()
+        // claimable for term 2
+        await expect(
+          (
+            await vevoter.connect(user1).claimable()
+          )[0]
+        ).to.be.closeTo(reward.div(2), parseEther('1').div(10000))
+        it('user1 vote 1 in term 1 and checkpoint did not be triggered, then the user can claim approximately 10/3 USDC for term 2 and 3', async () => {
+          await _setUp()
+          const reward = parseEther('10')
+          await oal.connect(user1).approve(ve.address, parseEther('1'))
+          await ve.connect(user1).createLock(parseEther('1'), 2 * YEAR)
+          await vevoter.connect(user1).vote([1])
+          await vevoter.checkpointToken()
+          // reward for term 1
+          await mintToTreasury(lusdc, reward)
+          // vote is valid after 1 term, so user1 can claim 0 for term 1
+          expect((await vevoter.connect(user1).claimable())[0]).to.be.equal(
+            parseEther('0')
+          )
+          await waitTerm()
+          await waitTerm()
+          await waitTerm()
+          await vevoter.checkpointToken()
+          // claimable for term 3
+          await expect(
+            (
+              await vevoter.connect(user1).claimable()
+            )[0]
+          ).to.be.closeTo(reward.div(3), parseEther('1').div(10000))
+        })
+      })
     })
   })
 })
