@@ -104,21 +104,21 @@ describe('Voter.sol Part2', () => {
       const [
         _ve,
         startTime,
-        lastTokenTime,
+        lastCheckpoint,
         termTimestampAtDeployed,
         minter,
         _term,
       ] = await Promise.all([
         voter._ve(),
         voter.START_TIME().then((v) => v.toNumber()),
-        voter.lastTokenTime().then((v) => v.toNumber()),
+        voter.lastCheckpoint().then((v) => v.toNumber()),
         voter.deployedTermTimestamp().then((v) => v.toNumber()),
         voter.minter(),
         voter.TERM(),
       ])
       expect(_ve.toLowerCase()).to.eq(votingEscrow.address.toLowerCase())
       expect(startTime).to.eq(currentTerm)
-      expect(lastTokenTime).to.eq(0)
+      expect(lastCheckpoint).to.eq(0)
       expect(termTimestampAtDeployed).to.eq(currentTerm)
       expect(minter).to.eq(deployer.address)
       expect(_term.toNumber()).to.eq(TERM)
@@ -185,7 +185,7 @@ describe('Voter.sol Part2', () => {
   })
 
   describe('.checkpointToken', () => {
-    describe('.lastTokenTime after .checkpointToken', () => {
+    describe('.lastCheckpoint after .checkpointToken', () => {
       const _setup = async () => {
         const { deployer, voter } = await setupWithoutTokens()
         const ltoken = await new MockLToken__factory(deployer).deploy(
@@ -205,14 +205,14 @@ describe('Voter.sol Part2', () => {
           startTerm,
         }
       }
-      it('check prerequisites: initial tokensPerWeek is zero', async () => {
+      it('check prerequisites: initial tokensPerTerm is zero', async () => {
         const { voter, ltoken, startTerm } = await _setup()
         const [tokens0, tokens1] = await Promise.all([
           voter
-            .tokensPerWeek(ltoken.address, startTerm)
+            .tokensPerTerm(ltoken.address, startTerm)
             .then((v) => Number(formatEther(v))),
           voter
-            .tokensPerWeek(ltoken.address, startTerm + TERM)
+            .tokensPerTerm(ltoken.address, startTerm + TERM)
             .then((v) => Number(formatEther(v))),
         ])
         expect(tokens0).to.eq(0)
@@ -223,20 +223,20 @@ describe('Voter.sol Part2', () => {
 
         const currentTerm = (await voter.currentTermTimestamp()).toNumber()
         expect(currentTerm).to.eq(startTerm)
-        const lastTokenTimeBefore = (await voter.lastTokenTime()).toNumber()
-        expect(lastTokenTimeBefore).to.eq(0)
+        const lastCheckpointBefore = (await voter.lastCheckpoint()).toNumber()
+        expect(lastCheckpointBefore).to.eq(0)
 
         await (await voter.checkpointToken()).wait()
 
-        const lastTokenTimeAfter = (await voter.lastTokenTime()).toNumber()
-        expect(lastTokenTimeAfter).to.gt(currentTerm)
+        const lastCheckpointAfter = (await voter.lastCheckpoint()).toNumber()
+        expect(lastCheckpointAfter).to.gt(currentTerm)
 
         const [tokens0, tokens1] = await Promise.all([
           voter
-            .tokensPerWeek(ltoken.address, startTerm)
+            .tokensPerTerm(ltoken.address, startTerm)
             .then((v) => Number(formatEther(v))),
           voter
-            .tokensPerWeek(ltoken.address, startTerm + TERM)
+            .tokensPerTerm(ltoken.address, startTerm + TERM)
             .then((v) => Number(formatEther(v))),
         ])
         expect(tokens0).to.eq(0)
@@ -248,14 +248,14 @@ describe('Voter.sol Part2', () => {
         await ethers.provider.send('evm_mine', [startTerm + TERM - 5]) // 5 seconds before the next term
         await (await voter.checkpointToken()).wait()
 
-        const lastTokenTime = (await voter.lastTokenTime()).toNumber()
-        expect(lastTokenTime).to.gt(startTerm)
+        const lastCheckpoint = (await voter.lastCheckpoint()).toNumber()
+        expect(lastCheckpoint).to.gt(startTerm)
         const [tokens0, tokens1] = await Promise.all([
           voter
-            .tokensPerWeek(ltoken.address, startTerm)
+            .tokensPerTerm(ltoken.address, startTerm)
             .then((v) => Number(formatEther(v))),
           voter
-            .tokensPerWeek(ltoken.address, startTerm + TERM)
+            .tokensPerTerm(ltoken.address, startTerm + TERM)
             .then((v) => Number(formatEther(v))),
         ])
         expect(tokens0).to.eq(0)
@@ -268,15 +268,15 @@ describe('Voter.sol Part2', () => {
 
         await (await voter.checkpointToken()).wait()
 
-        const lastTokenTime = (await voter.lastTokenTime()).toNumber()
-        expect(lastTokenTime).to.greaterThan(startTerm + TERM)
-        expect(lastTokenTime).to.lessThanOrEqual(startTerm + TERM + 10)
+        const lastCheckpoint = (await voter.lastCheckpoint()).toNumber()
+        expect(lastCheckpoint).to.greaterThan(startTerm + TERM)
+        expect(lastCheckpoint).to.lessThanOrEqual(startTerm + TERM + 10)
         const [tokens0, tokens1] = await Promise.all([
           voter
-            .tokensPerWeek(ltoken.address, startTerm)
+            .tokensPerTerm(ltoken.address, startTerm)
             .then((v) => Number(formatEther(v))),
           voter
-            .tokensPerWeek(ltoken.address, startTerm + TERM)
+            .tokensPerTerm(ltoken.address, startTerm + TERM)
             .then((v) => Number(formatEther(v))),
         ])
         expect(tokens0).to.eq(0)
@@ -594,16 +594,16 @@ describe('Voter.sol Part2', () => {
         const getTokenPerWeeks = async () => {
           const results = await Promise.all([
             voter
-              .tokensPerWeek(mockToken.address, initialTerm)
+              .tokensPerTerm(mockToken.address, initialTerm)
               .then((v) => Number(formatEther(v))),
             voter
-              .tokensPerWeek(mockToken.address, term1st)
+              .tokensPerTerm(mockToken.address, term1st)
               .then((v) => Number(formatEther(v))),
             voter
-              .tokensPerWeek(mockToken.address, term2nd)
+              .tokensPerTerm(mockToken.address, term2nd)
               .then((v) => Number(formatEther(v))),
             voter
-              .tokensPerWeek(mockToken.address, term3rd)
+              .tokensPerTerm(mockToken.address, term3rd)
               .then((v) => Number(formatEther(v))),
           ])
           return {
@@ -1875,7 +1875,7 @@ describe('Voter.sol Part2', () => {
         }
       }
       describe('check claimable term', () => {
-        it('no claimable when current lastTokenTime is initialTerm', async () => {
+        it('no claimable when current lastCheckpoint is initialTerm', async () => {
           const { votingEscrow, voter, tokenA, userA, startTerm } =
             await _setup()
           const _voter = voter.connect(userA)
@@ -1884,7 +1884,7 @@ describe('Voter.sol Part2', () => {
           const getClaimableForToken = async () =>
             Number(formatEther((await _voter.claimable())[0]))
           const getLastTokenTime = async () =>
-            Number(await _voter.lastTokenTime())
+            Number(await _voter.lastCheckpoint())
 
           // Execute
           await (await _voter.connect(userA).vote([1, 0])).wait()
@@ -1923,7 +1923,7 @@ describe('Voter.sol Part2', () => {
           const { votingEscrow, voter, tokenA, userA, lockerIdA, startTerm } =
             await _setup()
           const _voter = voter.connect(userA)
-          const initialLastTokenTime = (await voter.lastTokenTime()).toNumber()
+          const initialLastTokenTime = (await voter.lastCheckpoint()).toNumber()
 
           // Utilities
           const getBalanceOf = async () =>

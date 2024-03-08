@@ -52,18 +52,20 @@ const checkVoter = async (args: Args) => {
     instance.TERM().then((v) => v.toNumber()),
     instance.tokenList(),
   ])
-  const lastTokenTime = (await instance.lastTokenTime()).toNumber()
-  console.log(`lastTokenTime: ${new Date(lastTokenTime * 1000).toISOString()}`)
+  const lastCheckpoint = (await instance.lastCheckpoint()).toNumber()
+  console.log(
+    `lastCheckpoint: ${new Date(lastCheckpoint * 1000).toISOString()}`
+  )
 
   const check = async (ts: number, idx: number, list: string[]) => {
     console.log(`# termIndex: ${idx}`)
     console.log(`## timestamp: ${new Date(ts * 1000).toISOString()}`)
-    const tokensPerWeeks = await Promise.all(
-      list.map((v) => instance.tokensPerWeek(v, ts))
+    const tokensPerTerms = await Promise.all(
+      list.map((v) => instance.tokensPerTerm(v, ts))
     )
     for await (const [i, v] of list.entries()) {
       console.log(`## address: ${v}`)
-      console.log(formatEther(tokensPerWeeks[i]))
+      console.log(formatEther(tokensPerTerms[i]))
     }
   }
 

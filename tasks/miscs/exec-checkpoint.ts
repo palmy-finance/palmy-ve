@@ -58,10 +58,10 @@ task('exec:checkpoint-of-voter', 'exec:checkpoint-of-voter')
       const instance = Voter__factory.connect(contract, _executor)
 
       const check = async () => {
-        const lastTokenTime = await instance.lastTokenTime()
+        const lastCheckpoint = await instance.lastCheckpoint()
         console.log(
-          `lastTokenTime ... ${new Date(
-            lastTokenTime.toNumber() * 1000
+          `lastCheckpoint ... ${new Date(
+            lastCheckpoint.toNumber() * 1000
           ).toISOString()}`
         )
       }

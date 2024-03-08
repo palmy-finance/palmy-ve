@@ -220,13 +220,13 @@ describe('Confirming logic of distributions', () => {
     term: number,
     ltoken: string
   ) => {
-    const [tokensPerWeek] = await Promise.all([
-      voter.tokensPerWeek(ltoken, term),
+    const [tokensPerTerm] = await Promise.all([
+      voter.tokensPerTerm(ltoken, term),
     ])
-    return tokensPerWeek
+    return tokensPerTerm
   }
 
-  describe('check .tokensPerWeek', () => {
+  describe('check .tokensPerTerm', () => {
     const LOOP = 8
     const logVoterStatus = async (
       user: SignerWithAddress,

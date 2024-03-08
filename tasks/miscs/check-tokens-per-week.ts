@@ -69,7 +69,7 @@ task('check:tokens-per-week', 'check:token-per-week').setAction(
       const tokensWithTokenPerWeeks = await Promise.all(
         tokens.map((token) =>
           voter
-            .tokensPerWeek(token.address, baseTerm)
+            .tokensPerTerm(token.address, baseTerm)
             .then((v) => ({ ...token, value: v }))
         )
       )

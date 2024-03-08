@@ -160,15 +160,15 @@ describe('Scenario: vote -> distribute -> claim bonus (protocol fee)', () => {
           voter.poolWeights(v, ts).then((v) => formatEther(v))
         )
       )
-      const tokensPerWeeks = await Promise.all(
+      const tokensPerTerms = await Promise.all(
         mockLTokenAddresses.map((v) =>
-          voter.tokensPerWeek(v, ts).then((v) => formatEther(v))
+          voter.tokensPerTerm(v, ts).then((v) => formatEther(v))
         )
       )
       return {
         votes,
         poolWeights,
-        tokensPerWeeks,
+        tokensPerTerms,
       }
     }
     const checkClaimable = async () => {
@@ -213,7 +213,7 @@ describe('Scenario: vote -> distribute -> claim bonus (protocol fee)', () => {
       initialTerm,
     }
   }
-  describe('check tokensPerWeeks/claimable', () => {
+  describe('check tokensPerTerms/claimable', () => {
     describe('multi transfer', () => {
       it('when mint/transfer only before just at the end term', async () => {
         // Prerequisites
@@ -235,13 +235,13 @@ describe('Scenario: vote -> distribute -> claim bonus (protocol fee)', () => {
         before.t5.votes.map((v) => expect(Number(v)).to.eq(0))
         before.t6.votes.map((v) => expect(Number(v)).to.eq(0))
         // about tokenPerWeek
-        before.tInitial.tokensPerWeeks.map((v) => expect(Number(v)).to.eq(0))
-        before.t1.tokensPerWeeks.map((v) => expect(Number(v)).to.eq(0))
-        before.t2.tokensPerWeeks.map((v) => expect(Number(v)).to.eq(0))
-        before.t3.tokensPerWeeks.map((v) => expect(Number(v)).to.eq(0))
-        before.t4.tokensPerWeeks.map((v) => expect(Number(v)).to.eq(0))
-        before.t5.tokensPerWeeks.map((v) => expect(Number(v)).to.eq(0))
-        before.t6.tokensPerWeeks.map((v) => expect(Number(v)).to.eq(0))
+        before.tInitial.tokensPerTerms.map((v) => expect(Number(v)).to.eq(0))
+        before.t1.tokensPerTerms.map((v) => expect(Number(v)).to.eq(0))
+        before.t2.tokensPerTerms.map((v) => expect(Number(v)).to.eq(0))
+        before.t3.tokensPerTerms.map((v) => expect(Number(v)).to.eq(0))
+        before.t4.tokensPerTerms.map((v) => expect(Number(v)).to.eq(0))
+        before.t5.tokensPerTerms.map((v) => expect(Number(v)).to.eq(0))
+        before.t6.tokensPerTerms.map((v) => expect(Number(v)).to.eq(0))
         // about claimable
         before.claimable.map((v) => expect(Number(v)).to.eq(0))
 
@@ -294,13 +294,13 @@ describe('Scenario: vote -> distribute -> claim bonus (protocol fee)', () => {
         before.t5.votes.map((v) => expect(Number(v)).to.eq(0))
         before.t6.votes.map((v) => expect(Number(v)).to.eq(0))
         // about tokenPerWeek
-        before.tInitial.tokensPerWeeks.map((v) => expect(Number(v)).to.eq(0))
-        before.t1.tokensPerWeeks.map((v) => expect(Number(v)).to.eq(0))
-        before.t2.tokensPerWeeks.map((v) => expect(Number(v)).to.eq(0))
-        before.t3.tokensPerWeeks.map((v) => expect(Number(v)).to.eq(0))
-        before.t4.tokensPerWeeks.map((v) => expect(Number(v)).to.eq(0))
-        before.t5.tokensPerWeeks.map((v) => expect(Number(v)).to.eq(0))
-        before.t6.tokensPerWeeks.map((v) => expect(Number(v)).to.eq(0))
+        before.tInitial.tokensPerTerms.map((v) => expect(Number(v)).to.eq(0))
+        before.t1.tokensPerTerms.map((v) => expect(Number(v)).to.eq(0))
+        before.t2.tokensPerTerms.map((v) => expect(Number(v)).to.eq(0))
+        before.t3.tokensPerTerms.map((v) => expect(Number(v)).to.eq(0))
+        before.t4.tokensPerTerms.map((v) => expect(Number(v)).to.eq(0))
+        before.t5.tokensPerTerms.map((v) => expect(Number(v)).to.eq(0))
+        before.t6.tokensPerTerms.map((v) => expect(Number(v)).to.eq(0))
         // about claimable
         before.claimable.map((v) => expect(Number(v)).to.eq(0))
 
@@ -354,13 +354,13 @@ describe('Scenario: vote -> distribute -> claim bonus (protocol fee)', () => {
         before.t5.votes.map((v) => expect(Number(v)).to.eq(0))
         before.t6.votes.map((v) => expect(Number(v)).to.eq(0))
         // about tokenPerWeek
-        before.tInitial.tokensPerWeeks.map((v) => expect(Number(v)).to.eq(0))
-        before.t1.tokensPerWeeks.map((v) => expect(Number(v)).to.eq(0))
-        before.t2.tokensPerWeeks.map((v) => expect(Number(v)).to.eq(0))
-        before.t3.tokensPerWeeks.map((v) => expect(Number(v)).to.eq(0))
-        before.t4.tokensPerWeeks.map((v) => expect(Number(v)).to.eq(0))
-        before.t5.tokensPerWeeks.map((v) => expect(Number(v)).to.eq(0))
-        before.t6.tokensPerWeeks.map((v) => expect(Number(v)).to.eq(0))
+        before.tInitial.tokensPerTerms.map((v) => expect(Number(v)).to.eq(0))
+        before.t1.tokensPerTerms.map((v) => expect(Number(v)).to.eq(0))
+        before.t2.tokensPerTerms.map((v) => expect(Number(v)).to.eq(0))
+        before.t3.tokensPerTerms.map((v) => expect(Number(v)).to.eq(0))
+        before.t4.tokensPerTerms.map((v) => expect(Number(v)).to.eq(0))
+        before.t5.tokensPerTerms.map((v) => expect(Number(v)).to.eq(0))
+        before.t6.tokensPerTerms.map((v) => expect(Number(v)).to.eq(0))
         // about claimable
         before.claimable.map((v) => expect(Number(v)).to.eq(0))
 
@@ -383,18 +383,18 @@ describe('Scenario: vote -> distribute -> claim bonus (protocol fee)', () => {
         const status2nd = await voterStatuses()
         console.log()
         // about tokenPerWeek
-        status2nd.tInitial.tokensPerWeeks.map((v) => expect(Number(v)).to.eq(0))
-        status2nd.t1.tokensPerWeeks.map((v) =>
+        status2nd.tInitial.tokensPerTerms.map((v) => expect(Number(v)).to.eq(0))
+        status2nd.t1.tokensPerTerms.map((v) =>
           expect(Number(v)).to.greaterThan(0)
         )
-        status2nd.t2.tokensPerWeeks.map((v) => expect(Number(v)).to.lessThan(3))
-        status2nd.t2.tokensPerWeeks.map((v) =>
+        status2nd.t2.tokensPerTerms.map((v) => expect(Number(v)).to.lessThan(3))
+        status2nd.t2.tokensPerTerms.map((v) =>
           expect(Number(v)).to.greaterThanOrEqual(2.95)
         )
-        status2nd.t3.tokensPerWeeks.map((v) => expect(Number(v)).to.eq(0))
-        status2nd.t4.tokensPerWeeks.map((v) => expect(Number(v)).to.eq(0))
-        status2nd.t5.tokensPerWeeks.map((v) => expect(Number(v)).to.eq(0))
-        status2nd.t6.tokensPerWeeks.map((v) => expect(Number(v)).to.eq(0))
+        status2nd.t3.tokensPerTerms.map((v) => expect(Number(v)).to.eq(0))
+        status2nd.t4.tokensPerTerms.map((v) => expect(Number(v)).to.eq(0))
+        status2nd.t5.tokensPerTerms.map((v) => expect(Number(v)).to.eq(0))
+        status2nd.t6.tokensPerTerms.map((v) => expect(Number(v)).to.eq(0))
         // about claimable
         status2nd.claimable.map((v) => expect(Number(v)).to.lessThan(1))
         status2nd.claimable.map((v) => expect(Number(v)).to.greaterThan(0))
@@ -421,13 +421,13 @@ describe('Scenario: vote -> distribute -> claim bonus (protocol fee)', () => {
         before.t5.votes.map((v) => expect(Number(v)).to.eq(0))
         before.t6.votes.map((v) => expect(Number(v)).to.eq(0))
         // about tokenPerWeek
-        before.tInitial.tokensPerWeeks.map((v) => expect(Number(v)).to.eq(0))
-        before.t1.tokensPerWeeks.map((v) => expect(Number(v)).to.eq(0))
-        before.t2.tokensPerWeeks.map((v) => expect(Number(v)).to.eq(0))
-        before.t3.tokensPerWeeks.map((v) => expect(Number(v)).to.eq(0))
-        before.t4.tokensPerWeeks.map((v) => expect(Number(v)).to.eq(0))
-        before.t5.tokensPerWeeks.map((v) => expect(Number(v)).to.eq(0))
-        before.t6.tokensPerWeeks.map((v) => expect(Number(v)).to.eq(0))
+        before.tInitial.tokensPerTerms.map((v) => expect(Number(v)).to.eq(0))
+        before.t1.tokensPerTerms.map((v) => expect(Number(v)).to.eq(0))
+        before.t2.tokensPerTerms.map((v) => expect(Number(v)).to.eq(0))
+        before.t3.tokensPerTerms.map((v) => expect(Number(v)).to.eq(0))
+        before.t4.tokensPerTerms.map((v) => expect(Number(v)).to.eq(0))
+        before.t5.tokensPerTerms.map((v) => expect(Number(v)).to.eq(0))
+        before.t6.tokensPerTerms.map((v) => expect(Number(v)).to.eq(0))
         // about claimable
         before.claimable.map((v) => expect(Number(v)).to.eq(0))
 
@@ -450,18 +450,18 @@ describe('Scenario: vote -> distribute -> claim bonus (protocol fee)', () => {
         const status3rd = await voterStatuses()
         console.log()
         // about tokenPerWeek
-        status3rd.tInitial.tokensPerWeeks.map((v) => expect(Number(v)).to.eq(0))
-        status3rd.t1.tokensPerWeeks.map((v) => expect(Number(v)).to.eq(0))
-        status3rd.t2.tokensPerWeeks.map((v) => expect(Number(v)).to.lessThan(3))
-        status3rd.t2.tokensPerWeeks.map((v) =>
+        status3rd.tInitial.tokensPerTerms.map((v) => expect(Number(v)).to.eq(0))
+        status3rd.t1.tokensPerTerms.map((v) => expect(Number(v)).to.eq(0))
+        status3rd.t2.tokensPerTerms.map((v) => expect(Number(v)).to.lessThan(3))
+        status3rd.t2.tokensPerTerms.map((v) =>
           expect(Number(v)).to.greaterThanOrEqual(2.95)
         )
-        status3rd.t3.tokensPerWeeks.map((v) =>
+        status3rd.t3.tokensPerTerms.map((v) =>
           expect(Number(v)).to.greaterThan(0)
         )
-        status3rd.t4.tokensPerWeeks.map((v) => expect(Number(v)).to.eq(0))
-        status3rd.t5.tokensPerWeeks.map((v) => expect(Number(v)).to.eq(0))
-        status3rd.t6.tokensPerWeeks.map((v) => expect(Number(v)).to.eq(0))
+        status3rd.t4.tokensPerTerms.map((v) => expect(Number(v)).to.eq(0))
+        status3rd.t5.tokensPerTerms.map((v) => expect(Number(v)).to.eq(0))
+        status3rd.t6.tokensPerTerms.map((v) => expect(Number(v)).to.eq(0))
         // about claimable
         status3rd.claimable.map((v) => expect(Number(v)).to.lessThan(3))
         status3rd.claimable.map((v) =>
@@ -488,7 +488,7 @@ describe.only('Scenario: vote after some terms passed & add new token', () => {
   ) => Promise<{
     votes: string[]
     poolWeights: string[]
-    tokensPerWeeks: string[]
+    tokensPerTerms: string[]
   }>
   let transfersLTokens: (
     params: { ltoken: string; amount: number }[]
@@ -519,19 +519,19 @@ describe.only('Scenario: vote after some terms passed & add new token', () => {
           voter.poolWeights(v, _ts).then((v) => formatEther(v))
         )
       )
-      const tokensPerWeeks = await Promise.all(
+      const tokensPerTerms = await Promise.all(
         _ltokens.map((v) =>
-          voter.tokensPerWeek(v, _ts).then((v) => formatEther(v))
+          voter.tokensPerTerm(v, _ts).then((v) => formatEther(v))
         )
       )
       console.log(`# term: ${new Date(_ts * 1000).toISOString()}`)
       console.log(`votes         : ${votes}`)
       console.log(`poolWeights   : ${poolWeights}`)
-      console.log(`tokensPerWeeks: ${tokensPerWeeks}`)
+      console.log(`tokensPerTerms: ${tokensPerTerms}`)
       return {
         votes,
         poolWeights,
-        tokensPerWeeks,
+        tokensPerTerms,
       }
     }
 
@@ -607,8 +607,8 @@ describe.only('Scenario: vote after some terms passed & add new token', () => {
     for (const poolWeight of result_1_0.poolWeights) {
       expect(Number(poolWeight)).to.eq(0)
     }
-    for (const tokensPerWeek of result_1_0.tokensPerWeeks) {
-      expect(Number(tokensPerWeek)).to.eq(0)
+    for (const tokensPerTerm of result_1_0.tokensPerTerms) {
+      expect(Number(tokensPerTerm)).to.eq(0)
     }
 
     const result_1_1 = await checkVote(
@@ -622,8 +622,8 @@ describe.only('Scenario: vote after some terms passed & add new token', () => {
     expect(Number(result_1_1.poolWeights[0])).to.gt(25 * ADJUSTED_RATIO)
     expect(Number(result_1_1.poolWeights[1])).to.eq(0)
     expect(Number(result_1_1.poolWeights[2])).to.gt(75 * ADJUSTED_RATIO)
-    for (const tokensPerWeek of result_1_1.tokensPerWeeks)
-      expect(Number(tokensPerWeek)).to.eq(0)
+    for (const tokensPerTerm of result_1_1.tokensPerTerms)
+      expect(Number(tokensPerTerm)).to.eq(0)
 
     const result_1_2 = await checkVote(
       lockerId,
@@ -636,8 +636,8 @@ describe.only('Scenario: vote after some terms passed & add new token', () => {
     expect(Number(result_1_2.poolWeights[0])).to.gt(25 * ADJUSTED_RATIO)
     expect(Number(result_1_2.poolWeights[1])).to.eq(0)
     expect(Number(result_1_2.poolWeights[2])).to.gt(75 * ADJUSTED_RATIO)
-    for (const tokensPerWeek of result_1_2.tokensPerWeeks)
-      expect(Number(tokensPerWeek)).to.eq(0)
+    for (const tokensPerTerm of result_1_2.tokensPerTerms)
+      expect(Number(tokensPerTerm)).to.eq(0)
 
     const result_1_3 = await checkVote(
       lockerId,
@@ -650,8 +650,8 @@ describe.only('Scenario: vote after some terms passed & add new token', () => {
     expect(Number(result_1_3.poolWeights[0])).to.gt(25 * ADJUSTED_RATIO)
     expect(Number(result_1_3.poolWeights[1])).to.eq(0)
     expect(Number(result_1_3.poolWeights[2])).to.gt(75 * ADJUSTED_RATIO)
-    for (const tokensPerWeek of result_1_3.tokensPerWeeks)
-      expect(Number(tokensPerWeek)).to.eq(0)
+    for (const tokensPerTerm of result_1_3.tokensPerTerms)
+      expect(Number(tokensPerTerm)).to.eq(0)
 
     const result_1_4 = await checkVote(
       lockerId,
@@ -664,8 +664,8 @@ describe.only('Scenario: vote after some terms passed & add new token', () => {
     for (const poolWeight of result_1_4.poolWeights) {
       expect(Number(poolWeight)).to.eq(0)
     }
-    for (const tokensPerWeek of result_1_4.tokensPerWeeks)
-      expect(Number(tokensPerWeek)).to.eq(0)
+    for (const tokensPerTerm of result_1_4.tokensPerTerms)
+      expect(Number(tokensPerTerm)).to.eq(0)
 
     //// in 1st term (immediately before 2nd term)
     ethers.provider.send('evm_mine', [initialTerm + 2 * TERM - 1 * HOUR])
@@ -690,38 +690,38 @@ describe.only('Scenario: vote after some terms passed & add new token', () => {
       initialTerm,
       mockLTokenAddresses
     )
-    for (const tokensPerWeek of result_2_0.tokensPerWeeks)
-      expect(Number(tokensPerWeek)).to.above(0)
+    for (const tokensPerTerm of result_2_0.tokensPerTerms)
+      expect(Number(tokensPerTerm)).to.above(0)
     const result_2_1 = await checkVote(
       lockerId,
       initialTerm + TERM,
       mockLTokenAddresses
     )
-    expect(Number(result_2_1.tokensPerWeeks[0])).to.gt(98)
-    expect(Number(result_2_1.tokensPerWeeks[1])).to.gt(980)
-    expect(Number(result_2_1.tokensPerWeeks[2])).to.gt(9800)
+    expect(Number(result_2_1.tokensPerTerms[0])).to.gt(98)
+    expect(Number(result_2_1.tokensPerTerms[1])).to.gt(980)
+    expect(Number(result_2_1.tokensPerTerms[2])).to.gt(9800)
     const result_2_2 = await checkVote(
       lockerId,
       initialTerm + 2 * TERM,
       mockLTokenAddresses
     )
-    expect(Number(result_2_2.tokensPerWeeks[0])).to.gt(98)
-    expect(Number(result_2_2.tokensPerWeeks[1])).to.gt(980)
-    expect(Number(result_2_2.tokensPerWeeks[2])).to.gt(9800)
+    expect(Number(result_2_2.tokensPerTerms[0])).to.gt(98)
+    expect(Number(result_2_2.tokensPerTerms[1])).to.gt(980)
+    expect(Number(result_2_2.tokensPerTerms[2])).to.gt(9800)
     const result_2_3 = await checkVote(
       lockerId,
       initialTerm + 3 * TERM,
       mockLTokenAddresses
     )
-    for (const tokensPerWeek of result_2_3.tokensPerWeeks)
-      expect(Number(tokensPerWeek)).to.eq(0)
+    for (const tokensPerTerm of result_2_3.tokensPerTerms)
+      expect(Number(tokensPerTerm)).to.eq(0)
     const result_2_4 = await checkVote(
       lockerId,
       initialTerm + 4 * TERM,
       mockLTokenAddresses
     )
-    for (const tokensPerWeek of result_2_4.tokensPerWeeks)
-      expect(Number(tokensPerWeek)).to.eq(0)
+    for (const tokensPerTerm of result_2_4.tokensPerTerms)
+      expect(Number(tokensPerTerm)).to.eq(0)
   })
   it('1. .addToken', async () => {
     const ltoken1 = await new MockLToken__factory(deployer).deploy(
@@ -783,11 +783,11 @@ describe.only('Scenario: vote after some terms passed & add new token', () => {
     expect(Number(result_1_2.poolWeights[2])).to.gt(75 * ADJUSTED_RATIO)
     expect(Number(result_1_2.poolWeights[3])).to.eq(0)
     expect(Number(result_1_2.poolWeights[4])).to.eq(0)
-    expect(Number(result_1_2.tokensPerWeeks[0])).to.gt(100 * ADJUSTED_RATIO)
-    expect(Number(result_1_2.tokensPerWeeks[1])).to.gt(1000 * ADJUSTED_RATIO)
-    expect(Number(result_1_2.tokensPerWeeks[2])).to.gt(10000 * ADJUSTED_RATIO)
-    expect(Number(result_1_2.tokensPerWeeks[3])).to.eq(0)
-    expect(Number(result_1_2.tokensPerWeeks[4])).to.eq(0)
+    expect(Number(result_1_2.tokensPerTerms[0])).to.gt(100 * ADJUSTED_RATIO)
+    expect(Number(result_1_2.tokensPerTerms[1])).to.gt(1000 * ADJUSTED_RATIO)
+    expect(Number(result_1_2.tokensPerTerms[2])).to.gt(10000 * ADJUSTED_RATIO)
+    expect(Number(result_1_2.tokensPerTerms[3])).to.eq(0)
+    expect(Number(result_1_2.tokensPerTerms[4])).to.eq(0)
 
     const result_1_3 = await checkVote(
       lockerId,
@@ -804,8 +804,8 @@ describe.only('Scenario: vote after some terms passed & add new token', () => {
     expect(Number(result_1_3.poolWeights[2])).to.gt(60 * ADJUSTED_RATIO)
     expect(Number(result_1_3.poolWeights[3])).to.eq(0)
     expect(Number(result_1_3.poolWeights[4])).to.gt(20 * ADJUSTED_RATIO)
-    for (const tokensPerWeek of result_1_3.tokensPerWeeks)
-      expect(Number(tokensPerWeek)).to.eq(0)
+    for (const tokensPerTerm of result_1_3.tokensPerTerms)
+      expect(Number(tokensPerTerm)).to.eq(0)
 
     const result_1_4 = await checkVote(
       lockerId,
@@ -815,8 +815,8 @@ describe.only('Scenario: vote after some terms passed & add new token', () => {
     for (const vote of result_1_4.votes) expect(Number(vote)).to.eq(0)
     for (const poolWeight of result_1_4.poolWeights)
       expect(Number(poolWeight)).to.eq(0)
-    for (const tokensPerWeek of result_1_4.tokensPerWeeks)
-      expect(Number(tokensPerWeek)).to.eq(0)
+    for (const tokensPerTerm of result_1_4.tokensPerTerms)
+      expect(Number(tokensPerTerm)).to.eq(0)
 
     //// reset reward by .claim
     // console.log((await voter.connect(user).claimable()).toString())
@@ -850,11 +850,11 @@ describe.only('Scenario: vote after some terms passed & add new token', () => {
     expect(Number(result_2_2.poolWeights[2])).to.gt(75 * ADJUSTED_RATIO)
     expect(Number(result_2_2.poolWeights[3])).to.eq(0)
     expect(Number(result_2_2.poolWeights[4])).to.eq(0)
-    expect(Number(result_2_2.tokensPerWeeks[0])).to.gt(100 * ADJUSTED_RATIO)
-    expect(Number(result_2_2.tokensPerWeeks[1])).to.gt(1000 * ADJUSTED_RATIO)
-    expect(Number(result_2_2.tokensPerWeeks[2])).to.gt(10000 * ADJUSTED_RATIO)
-    expect(Number(result_2_2.tokensPerWeeks[3])).to.gt(0) // only a few will be distributed as there are a few hours left
-    expect(Number(result_2_2.tokensPerWeeks[4])).to.gt(0) // only a few will be distributed as there are a few hours left
+    expect(Number(result_2_2.tokensPerTerms[0])).to.gt(100 * ADJUSTED_RATIO)
+    expect(Number(result_2_2.tokensPerTerms[1])).to.gt(1000 * ADJUSTED_RATIO)
+    expect(Number(result_2_2.tokensPerTerms[2])).to.gt(10000 * ADJUSTED_RATIO)
+    expect(Number(result_2_2.tokensPerTerms[3])).to.gt(0) // only a few will be distributed as there are a few hours left
+    expect(Number(result_2_2.tokensPerTerms[4])).to.gt(0) // only a few will be distributed as there are a few hours left
 
     const result_2_3 = await checkVote(
       lockerId,
@@ -871,11 +871,11 @@ describe.only('Scenario: vote after some terms passed & add new token', () => {
     expect(Number(result_2_3.poolWeights[2])).to.gt(60 * ADJUSTED_RATIO)
     expect(Number(result_2_3.poolWeights[3])).to.eq(0)
     expect(Number(result_2_3.poolWeights[4])).to.gt(20 * ADJUSTED_RATIO)
-    expect(Number(result_2_3.tokensPerWeeks[0])).to.gt(100 * ADJUSTED_RATIO)
-    expect(Number(result_2_3.tokensPerWeeks[1])).to.gt(1000 * ADJUSTED_RATIO)
-    expect(Number(result_2_3.tokensPerWeeks[2])).to.gt(10000 * ADJUSTED_RATIO)
-    expect(Number(result_2_3.tokensPerWeeks[3])).to.gt(100000 * ADJUSTED_RATIO)
-    expect(Number(result_2_3.tokensPerWeeks[4])).to.gt(1000000 * ADJUSTED_RATIO)
+    expect(Number(result_2_3.tokensPerTerms[0])).to.gt(100 * ADJUSTED_RATIO)
+    expect(Number(result_2_3.tokensPerTerms[1])).to.gt(1000 * ADJUSTED_RATIO)
+    expect(Number(result_2_3.tokensPerTerms[2])).to.gt(10000 * ADJUSTED_RATIO)
+    expect(Number(result_2_3.tokensPerTerms[3])).to.gt(100000 * ADJUSTED_RATIO)
+    expect(Number(result_2_3.tokensPerTerms[4])).to.gt(1000000 * ADJUSTED_RATIO)
 
     const result_2_4 = await checkVote(
       lockerId,
@@ -885,8 +885,8 @@ describe.only('Scenario: vote after some terms passed & add new token', () => {
     for (const vote of result_2_4.votes) expect(Number(vote)).to.eq(0)
     for (const poolWeight of result_2_4.poolWeights)
       expect(Number(poolWeight)).to.eq(0)
-    for (const tokensPerWeek of result_2_4.tokensPerWeeks)
-      expect(Number(tokensPerWeek)).to.eq(0)
+    for (const tokensPerTerm of result_2_4.tokensPerTerms)
+      expect(Number(tokensPerTerm)).to.eq(0)
 
     //// reset reward by .claim
     // console.log((await voter.connect(user).claimable()).toString())

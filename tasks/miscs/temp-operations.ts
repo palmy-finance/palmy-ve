@@ -324,8 +324,8 @@ task('temp:check:voter:weights', 'temp:check:weights').setAction(
 )
 
 task(
-  'temp:check:voter:tokensPerWeek',
-  'temp:check:voter:tokensPerWeek'
+  'temp:check:voter:tokensPerTerm',
+  'temp:check:voter:tokensPerTerm'
 ).setAction(async ({}, hre: HardhatRuntimeEnvironment) => {
   const { ethers, network } = hre
   const { contracts: addresses } = ContractsJsonHelper.load({
@@ -338,7 +338,7 @@ task(
   )
   const voter = Voter__factory.connect(addresses.voter, signer)
 
-  console.log(`------- [temp:check:tokensPerWeek] START -------`)
+  console.log(`------- [temp:check:tokensPerTerm] START -------`)
   console.log(`network ... ${network.name}`)
   const currentTerm = (await voter.currentTermTimestamp()).toNumber()
   const tokens = await voter.tokenList()
@@ -351,63 +351,63 @@ task(
   const termPlus3 = currentTerm + 3 * TERM
   const termPlus4 = currentTerm + 4 * TERM
   const toIsoStr = (t: number) => new Date(t * 1000).toISOString()
-  const tokensPerWeekMinus2 = await Promise.all(
-    tokens.map((v, i) => voter.tokensPerWeek(v, termMinus2))
+  const tokensPerTermMinus2 = await Promise.all(
+    tokens.map((v, i) => voter.tokensPerTerm(v, termMinus2))
   )
-  const tokensPerWeekMinus1 = await Promise.all(
-    tokens.map((v, i) => voter.tokensPerWeek(v, termMinus1))
+  const tokensPerTermMinus1 = await Promise.all(
+    tokens.map((v, i) => voter.tokensPerTerm(v, termMinus1))
   )
-  const tokensPerWeek = await Promise.all(
-    tokens.map((v, i) => voter.tokensPerWeek(v, termZero))
+  const tokensPerTerm = await Promise.all(
+    tokens.map((v, i) => voter.tokensPerTerm(v, termZero))
   )
-  const tokensPerWeekPlus1 = await Promise.all(
-    tokens.map((v, i) => voter.tokensPerWeek(v, termPlus1))
+  const tokensPerTermPlus1 = await Promise.all(
+    tokens.map((v, i) => voter.tokensPerTerm(v, termPlus1))
   )
-  const tokensPerWeekPlus2 = await Promise.all(
-    tokens.map((v, i) => voter.tokensPerWeek(v, termPlus2))
+  const tokensPerTermPlus2 = await Promise.all(
+    tokens.map((v, i) => voter.tokensPerTerm(v, termPlus2))
   )
-  const tokensPerWeekPlus3 = await Promise.all(
-    tokens.map((v, i) => voter.tokensPerWeek(v, termPlus3))
+  const tokensPerTermPlus3 = await Promise.all(
+    tokens.map((v, i) => voter.tokensPerTerm(v, termPlus3))
   )
-  const tokensPerWeekPlus4 = await Promise.all(
-    tokens.map((v, i) => voter.tokensPerWeek(v, termPlus4))
+  const tokensPerTermPlus4 = await Promise.all(
+    tokens.map((v, i) => voter.tokensPerTerm(v, termPlus4))
   )
   console.log(`Current - 2: ${toIsoStr(termMinus2)}`)
   for (let i = 0; i < tokens.length; i++)
-    console.log(`${tokens[i]}: ${tokensPerWeekMinus2[i].toString()}`)
-  // console.log(`${tokens[i]}: ${formatEther(tokensPerWeekMinus2[i])}`)
+    console.log(`${tokens[i]}: ${tokensPerTermMinus2[i].toString()}`)
+  // console.log(`${tokens[i]}: ${formatEther(tokensPerTermMinus2[i])}`)
   console.log(``)
   console.log(`Current - 1: ${toIsoStr(termMinus1)}`)
   for (let i = 0; i < tokens.length; i++)
-    console.log(`${tokens[i]}: ${tokensPerWeekMinus1[i].toString()}`)
-  // console.log(`${tokens[i]}: ${formatEther(tokensPerWeekMinus1[i])}`)
+    console.log(`${tokens[i]}: ${tokensPerTermMinus1[i].toString()}`)
+  // console.log(`${tokens[i]}: ${formatEther(tokensPerTermMinus1[i])}`)
   console.log(``)
   console.log(`Current    : ${toIsoStr(termZero)}`)
   for (let i = 0; i < tokens.length; i++)
-    console.log(`${tokens[i]}: ${tokensPerWeek[i].toString()}`)
-  // console.log(`${tokens[i]}: ${formatEther(tokensPerWeek[i])}`)
+    console.log(`${tokens[i]}: ${tokensPerTerm[i].toString()}`)
+  // console.log(`${tokens[i]}: ${formatEther(tokensPerTerm[i])}`)
   console.log(``)
   console.log(`Current + 1: ${toIsoStr(termPlus1)}`)
   for (let i = 0; i < tokens.length; i++)
-    console.log(`${tokens[i]}: ${tokensPerWeekPlus1[i].toString()}`)
-  // console.log(`${tokens[i]}: ${formatEther(tokensPerWeekPlus1[i])}`)
+    console.log(`${tokens[i]}: ${tokensPerTermPlus1[i].toString()}`)
+  // console.log(`${tokens[i]}: ${formatEther(tokensPerTermPlus1[i])}`)
   console.log(``)
   console.log(`Current + 2: ${toIsoStr(termPlus2)}`)
   for (let i = 0; i < tokens.length; i++)
-    console.log(`${tokens[i]}: ${tokensPerWeekPlus2[i].toString()}`)
-  // console.log(`${tokens[i]}: ${formatEther(tokensPerWeekPlus2[i])}`)
+    console.log(`${tokens[i]}: ${tokensPerTermPlus2[i].toString()}`)
+  // console.log(`${tokens[i]}: ${formatEther(tokensPerTermPlus2[i])}`)
   console.log(``)
   console.log(`Current + 3: ${toIsoStr(termPlus3)}`)
   for (let i = 0; i < tokens.length; i++)
-    console.log(`${tokens[i]}: ${tokensPerWeekPlus3[i].toString()}`)
-  // console.log(`${tokens[i]}: ${formatEther(tokensPerWeekPlus3[i])}`)
+    console.log(`${tokens[i]}: ${tokensPerTermPlus3[i].toString()}`)
+  // console.log(`${tokens[i]}: ${formatEther(tokensPerTermPlus3[i])}`)
   console.log(``)
   console.log(`Current + 4: ${toIsoStr(termPlus4)}`)
   for (let i = 0; i < tokens.length; i++)
-    console.log(`${tokens[i]}: ${tokensPerWeekPlus4[i].toString()}`)
-  // console.log(`${tokens[i]}: ${formatEther(tokensPerWeekPlus3[i])}`)
+    console.log(`${tokens[i]}: ${tokensPerTermPlus4[i].toString()}`)
+  // console.log(`${tokens[i]}: ${formatEther(tokensPerTermPlus3[i])}`)
   console.log(``)
-  console.log(`------- [temp:check:tokensPerWeek] END -------`)
+  console.log(`------- [temp:check:tokensPerTerm] END -------`)
 })
 
 task(

@@ -59,7 +59,7 @@ const checkVoter = async (args: Args) => {
   )
   const targets = [
     { label: '_ve', fn: _instance._ve },
-    { label: 'lastTokenTime', fn: _instance.lastTokenTime },
+    { label: 'lastCheckpoint', fn: _instance.lastCheckpoint },
     { label: 'startTime', fn: _instance.START_TIME },
     { label: 'minter', fn: _instance.minter },
     { label: '_term', fn: _instance.TERM },
