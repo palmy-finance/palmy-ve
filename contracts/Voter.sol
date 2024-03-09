@@ -256,6 +256,10 @@ contract Voter is Initializable {
 		return false;
 	}
 
+	/**
+	 * @dev Returns whether the token (ltoken) including the suspended one has been added
+	 * @param token The token address added
+	 **/
 	function isWhitelisted(address token) external view returns (bool) {
 		return _isWhitelisted(token);
 	}
@@ -263,12 +267,7 @@ contract Voter is Initializable {
 	function _isWhitelisted(
 		address token
 	) internal view returns (bool whitelisted) {
-		for (uint256 i = 0; i < tokens.length; i++) {
-			if (tokens[i] == token) {
-				return true;
-			}
-		}
-		return _isSuspended(token);
+		return tokenIndex[token] > 0 || _isSuspended(token);
 	}
 
 	/**
