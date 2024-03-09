@@ -30,12 +30,6 @@ contract Voter is Initializable {
 	uint256 public deployedTermTimestamp;
 
 	// state variables
-	struct TokenInfo {
-		mapping(uint256 => uint256) tokensPerTerm;
-		mapping(uint256 => uint256) weights;
-		address token;
-	}
-
 	struct SuspendedToken {
 		address token;
 		uint256 lastBalance;
