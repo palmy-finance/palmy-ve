@@ -123,12 +123,6 @@ describe('voter', () => {
     await vevoter.connect(distributor).addToken(lusdt.address)
   })
 
-  it('Confirm that the pools and the tokens are set correctly', async () => {
-    expect(await vevoter.pools(lusdc.address)).to.be.equal(lusdc.address)
-    expect(await vevoter.pools(ldai.address)).to.be.equal(ldai.address)
-    expect(await vevoter.pools(lusdt.address)).to.be.equal(lusdt.address)
-  })
-
   it('Should be reverted if the number of given weights do not match the number of pools', async () => {
     let weight = [1, 1]
     await expect(vevoter.connect(user1).vote(weight)).to.be.revertedWith(

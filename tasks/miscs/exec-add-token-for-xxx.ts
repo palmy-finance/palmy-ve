@@ -52,14 +52,10 @@ task('exec-add-tokens-for-xxx', 'exec-add-tokens-for-xxx').setAction(
     console.log(tokenList)
     console.log(`>> About each token`)
     for await (const token of tokenList) {
-      const [tIndex, pool] = await Promise.all([
-        voterInstance.tokenIndex(token),
-        voterInstance.pools(token),
-      ])
+      const tIndex = await voterInstance.tokenIndex(token)
       console.log({
         tokenIndex: tIndex.toString(),
         token,
-        pool,
       })
     }
 

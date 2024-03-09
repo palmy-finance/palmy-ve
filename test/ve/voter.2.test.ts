@@ -782,9 +782,6 @@ describe('Voter.sol Part2', () => {
       expect(_minter.toLowerCase()).to.eq(minter.address.toLowerCase())
       expect((await voter.tokenList()).length).to.eq(beforeLength)
       expect((await voter.tokenIndex(dummyToken.address)).toNumber()).to.eq(0)
-      expect(await voter.pools(dummyToken.address)).to.eq(
-        ethers.constants.AddressZero
-      )
 
       // Execute
       const tx = await voter.connect(minter).addToken(dummyToken.address)
@@ -793,7 +790,6 @@ describe('Voter.sol Part2', () => {
       expect((await voter.tokenIndex(dummyToken.address)).toNumber()).to.eq(
         beforeLength + 1
       )
-      expect(await voter.pools(dummyToken.address)).to.eq(dummyToken.address)
     })
     it('revert if second time', async () => {
       const { voter, deployer: minter } = await setup()
@@ -925,11 +921,9 @@ describe('Voter.sol Part2', () => {
         expect((await voter.tokenIndex(usdt.address)).toNumber()).to.eq(5)
         expect((await voter.tokenIndex(usdc.address)).toNumber()).to.eq(0)
         for await (const token of tokens) {
-          expect(await voter.pools(token.address)).to.eq(token.address)
           expect(await voter.isWhitelisted(token.address)).to.eq(true)
           expect(await voter.isSuspended(token.address)).to.eq(false)
         }
-        expect(await voter.pools(usdc.address)).to.eq(AddressZero)
 
         // Execute .suspendToken
         tx = await voter.suspendToken(wsdn.address)
@@ -943,11 +937,9 @@ describe('Voter.sol Part2', () => {
         expect((await voter.tokenIndex(usdc.address)).toNumber()).to.eq(0)
         const rests = [wastr, weth, wbtc, usdt]
         for await (const token of rests) {
-          expect(await voter.pools(token.address)).to.eq(token.address)
           expect(await voter.isWhitelisted(token.address)).to.eq(true)
           expect(await voter.isSuspended(token.address)).to.eq(false)
         }
-        expect(await voter.pools(wsdn.address)).to.eq(AddressZero)
         expect(await voter.isWhitelisted(wsdn.address)).to.eq(true)
         expect(await voter.isSuspended(wsdn.address)).to.eq(true)
 
@@ -962,7 +954,6 @@ describe('Voter.sol Part2', () => {
         expect((await voter.tokenIndex(usdt.address)).toNumber()).to.eq(4)
         expect((await voter.tokenIndex(usdc.address)).toNumber()).to.eq(0)
         for await (const token of tokens) {
-          expect(await voter.pools(token.address)).to.eq(token.address)
           expect(await voter.isWhitelisted(token.address)).to.eq(true)
           expect(await voter.isSuspended(token.address)).to.eq(false)
         }
@@ -1035,7 +1026,7 @@ describe('Voter.sol Part2', () => {
       it('revert if not whitelisted', async () => {
         const { voter } = await _setup()
         await expect(voter.resumeToken(ltoken.address)).to.be.revertedWith(
-          'Not whitelisted yet'
+          'Not suspended yet'
         )
       })
       it('revert if not suspended', async () => {
@@ -1048,7 +1039,7 @@ describe('Voter.sol Part2', () => {
 
         // Execute
         await expect(voter.resumeToken(ltoken.address)).to.be.revertedWith(
-          '_token is not suspended'
+          'Not suspended yet'
         )
       })
       it('revert if not suspended (resumed once)', async () => {
@@ -1065,7 +1056,7 @@ describe('Voter.sol Part2', () => {
 
         // Execute
         await expect(voter.resumeToken(ltoken.address)).to.be.revertedWith(
-          '_token is not suspended'
+          'Not suspended yet'
         )
       })
     })

@@ -30,21 +30,30 @@ contract Voter is Initializable {
 	uint256 public deployedTermTimestamp;
 
 	// state variables
+	struct TokenInfo {
+		mapping(uint256 => uint256) tokensPerTerm;
+		mapping(uint256 => uint256) weights;
+		address token;
+	}
+
+	struct SuspendedToken {
+		address token;
+		uint256 lastBalance;
+	}
+
+	SuspendedToken[] public suspendedTokens;
+
 	mapping(uint256 => uint256) public totalWeight; // total voting weight
 	address[] public tokens; // all tokens viable for incentives
 	mapping(address => uint256) public tokenIndex;
 	mapping(address => mapping(uint256 => uint256)) public poolWeights; // pool => weight
-	mapping(address => address) public pools; // token => pool
 	mapping(uint256 => mapping(address => mapping(uint256 => uint256)))
 		public votes; // lockerId => pool => votes
 	mapping(uint256 => mapping(address => uint256)) public weights; // lockerId => pool => weights
 	mapping(uint256 => mapping(uint256 => uint256))
 		public votedTotalVotingWeights; // lockerId => total voting weight of user for each terms
-	mapping(address => bool) public isWhitelisted; // for tokens - whether or not registered
-	mapping(address => bool) public isSuspended; // for tokens - whether it is valid
 
 	uint256[1000] public tokenLastBalance;
-	mapping(address => uint256) public suspendedTokenLastBalance; // tokenLastBalance for suspended tokens
 	mapping(address => mapping(uint256 => uint256)) public tokensPerTerm; // token => timestamp of term => amount
 	uint256 public lastCheckpoint;
 	uint256 public START_TIME;
@@ -202,13 +211,16 @@ contract Voter is Initializable {
 	function addToken(address _token) external onlyMinter {
 		require(_token != address(0), "Zero address cannot be set");
 		require(isLToken(_token), "_token is not ltoken");
-		require(!isWhitelisted[_token], "Already whitelisted");
-		isWhitelisted[_token] = true;
+		require(!_isWhitelisted(_token), "Already whitelisted");
+		_addToken(_token, 0);
 
-		tokenIndex[_token] = tokens.length + 1;
-		tokens.push(_token);
-		pools[_token] = _token;
 		emit TokenAdded(_token);
+	}
+
+	function _addToken(address _token, uint256 balance) internal {
+		tokenIndex[_token] = tokens.length + 1;
+		tokenLastBalance[tokens.length] = balance;
+		tokens.push(_token);
 	}
 
 	/**
@@ -217,8 +229,8 @@ contract Voter is Initializable {
 	 **/
 	function suspendToken(address _token) external onlyMinter {
 		require(_token != address(0), "Zero address cannot be set");
-		require(isWhitelisted[_token], "Not whitelisted yet");
-		require(!isSuspended[_token], "_token is suspended");
+		require(_isWhitelisted(_token), "Not whitelisted yet");
+		require(!_isSuspended(_token), "_token is suspended");
 		uint256 arrIdx = tokenIndex[_token] - 1;
 		require(
 			arrIdx < tokens.length,
@@ -229,7 +241,9 @@ contract Voter is Initializable {
 			vacantTokenLastBalance == 0,
 			"unexpected error: tokenLastBalance without token is greater than 0"
 		);
-		suspendedTokenLastBalance[_token] = tokenLastBalance[arrIdx]; // save current tokenLastBalance to suspendedTokenLastBalance
+		suspendedTokens.push(
+			SuspendedToken({ token: _token, lastBalance: tokenLastBalance[arrIdx] })
+		);
 		for (uint256 i = arrIdx; i < tokens.length - 1; i++) {
 			address iToken = tokens[i + 1];
 			tokens[i] = iToken;
@@ -241,25 +255,56 @@ contract Voter is Initializable {
 		tokenLastBalance[tokens.length - 1] = 0;
 		tokens.pop();
 		tokenIndex[_token] = 0;
-		pools[_token] = address(0);
-		isSuspended[_token] = true;
+	}
+
+	function isSuspended(address token) external view returns (bool) {
+		return _isSuspended(token);
+	}
+
+	function _isSuspended(address token) internal view returns (bool) {
+		for (uint256 i = 0; i < suspendedTokens.length; i++) {
+			if (suspendedTokens[i].token == token) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	function isWhitelisted(address token) external view returns (bool) {
+		return _isWhitelisted(token);
+	}
+
+	function _isWhitelisted(
+		address token
+	) internal view returns (bool whitelisted) {
+		for (uint256 i = 0; i < tokens.length; i++) {
+			if (tokens[i] == token) {
+				return true;
+			}
+		}
+		return _isSuspended(token);
 	}
 
 	/**
-	 * @dev Reregister a token (ltoken) added more than once
+	 * @dev Reregister a token (ltoken) which has been suspended
 	 * @param _token The token address added
 	 **/
 	function resumeToken(address _token) external onlyMinter {
 		require(_token != address(0), "Zero address cannot be set");
-		require(isWhitelisted[_token], "Not whitelisted yet");
-		require(isSuspended[_token], "_token is not suspended");
-
-		tokenIndex[_token] = tokens.length + 1;
-		tokenLastBalance[tokens.length] = suspendedTokenLastBalance[_token];
-		suspendedTokenLastBalance[_token] = 0;
-		tokens.push(_token);
-		pools[_token] = _token;
-		isSuspended[_token] = false;
+		require(_isSuspended(_token), "Not suspended yet");
+		uint256 balance;
+		for (uint256 i = 0; i < suspendedTokens.length; i++) {
+			if (suspendedTokens[i].token != _token) {
+				continue;
+			}
+			balance = suspendedTokens[i].lastBalance;
+			for (uint256 j = i; j < suspendedTokens.length - 1; j++) {
+				suspendedTokens[j] = suspendedTokens[j + 1];
+			}
+			suspendedTokens.pop();
+			break;
+		}
+		_addToken(_token, balance);
 	}
 
 	/**
@@ -292,9 +337,9 @@ contract Voter is Initializable {
 
 		uint256 _totalVoteWeight = 0;
 		for (uint256 i = 0; i < tokens.length; i++) {
-			address _pool = pools[tokens[i]];
+			address token = tokens[i];
 			uint256 _weight = _weights[i];
-			weights[_lockerId][_pool] = _weight;
+			weights[_lockerId][token] = _weight;
 			_totalVoteWeight += _weight;
 		}
 
@@ -307,16 +352,15 @@ contract Voter is Initializable {
 			if (balanceOf <= 0) break;
 
 			for (uint256 i = 0; i < tokens.length; i++) {
-				address _pool = pools[tokens[i]];
-				if (weights[_lockerId][_pool] == 0) continue;
-				uint256 _poolWeight = (uint256(balanceOf) * weights[_lockerId][_pool]) /
-					_totalVoteWeight;
-				votes[_lockerId][_pool][thisVotingTerm] = _poolWeight;
-				poolWeights[_pool][thisVotingTerm] += _poolWeight;
+				if (weights[_lockerId][tokens[i]] == 0) continue;
+				uint256 _poolWeight = (uint256(balanceOf) *
+					weights[_lockerId][tokens[i]]) / _totalVoteWeight;
+				votes[_lockerId][tokens[i]][thisVotingTerm] = _poolWeight;
+				poolWeights[tokens[i]][thisVotingTerm] += _poolWeight;
 				votedTotalVotingWeights[_lockerId][thisVotingTerm] += _poolWeight;
 				totalWeight[thisVotingTerm] += _poolWeight;
 
-				emit Voted(msg.sender, _lockerId, _pool, _poolWeight);
+				emit Voted(msg.sender, _lockerId, tokens[i], _poolWeight);
 			}
 			thisVotingTerm += TERM;
 		}
@@ -386,16 +430,15 @@ contract Voter is Initializable {
 			uint256 _totalWeight = 0;
 
 			for (uint256 i = 0; i < tokens.length; i++) {
-				address _pool = pools[tokens[i]];
-				uint256 _poolWeight = votes[_lockerId][_pool][thisTerm];
+				uint256 _poolWeight = votes[_lockerId][tokens[i]][thisTerm];
 				if (_poolWeight == 0) continue;
-				votes[_lockerId][_pool][thisTerm] -= _poolWeight;
-				poolWeights[_pool][thisTerm] -= _poolWeight;
+				votes[_lockerId][tokens[i]][thisTerm] -= _poolWeight;
+				poolWeights[tokens[i]][thisTerm] -= _poolWeight;
 				votedTotalVotingWeights[_lockerId][thisTerm] -= _poolWeight;
 				totalWeight[thisTerm] -= _poolWeight;
 				_totalWeight += _poolWeight;
 
-				emit Abstained(_lockerId, _pool, _poolWeight);
+				emit Abstained(_lockerId, tokens[i], _poolWeight);
 			}
 			if (_totalWeight == 0) break;
 			thisTerm += TERM;
@@ -411,8 +454,7 @@ contract Voter is Initializable {
 
 		// reset user's weights because not reset in #_reset
 		for (uint256 i = 0; i < tokens.length; i++) {
-			address _pool = pools[tokens[i]];
-			weights[_lockerId][_pool] = 0;
+			weights[_lockerId][tokens[i]] = 0;
 		}
 		_reset(_lockerId);
 		Ve(_ve).abstain(_lockerId);
@@ -429,8 +471,7 @@ contract Voter is Initializable {
 		// copy from last user's weights
 		uint256[] memory _weights = new uint256[](tokens.length);
 		for (uint256 i = 0; i < tokens.length; i++) {
-			address _pool = pools[tokens[i]];
-			_weights[i] = weights[_lockerId][_pool];
+			_weights[i] = weights[_lockerId][tokens[i]];
 		}
 		_vote(_lockerId, _weights, voteEndTime[_lockerId]);
 	}
@@ -487,11 +528,10 @@ contract Voter is Initializable {
 
 			for (uint256 i = 0; i < tokens.length; i++) {
 				address _token = tokens[i];
-				address _pool = pools[_token];
-				if (poolWeights[_pool][thisTerm] == 0) continue;
+				if (poolWeights[_token][thisTerm] == 0) continue;
 				uint256 distributionTotal = tokensPerTerm[_token][thisTerm];
-				uint256 userVote = votes[_lockerId][_pool][thisTerm];
-				uint256 totalVotes = poolWeights[_pool][thisTerm];
+				uint256 userVote = votes[_lockerId][_token][thisTerm];
+				uint256 totalVotes = poolWeights[_token][thisTerm];
 				uint256 scaledDistribute = (distributionTotal * userVote) / totalVotes;
 				uint256 currentIndex = ILendingPool(lendingPool)
 					.getReserveNormalizedIncome(
