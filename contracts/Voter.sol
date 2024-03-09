@@ -166,26 +166,18 @@ contract Voter is Initializable {
 
 		for (uint256 j = 0; j < 50; j++) {
 			uint256 nextTerm = thisTerm + TERM;
-			bool isLastTerm = nextTerm > block.timestamp;
+			bool isCurrentTerm = nextTerm > block.timestamp;
+			uint256 secsFromLastTerm = isCurrentTerm
+				? block.timestamp - t
+				: nextTerm - t;
+			bool zeroDelta = secsFromLastCheckpoint == 0 && secsFromLastTerm == 0;
 			for (uint256 i = 0; i < tokens.length; i++) {
-				address _token = tokens[i];
-				uint256 distributionAmount;
-				if (isLastTerm) {
-					if (secsFromLastCheckpoint == 0 && block.timestamp == t) {
-						distributionAmount = toDistribute[i];
-					} else {
-						distributionAmount =
-							(toDistribute[i] * (block.timestamp - t)) /
-							secsFromLastCheckpoint;
-					}
-				} else {
-					distributionAmount =
-						(toDistribute[i] * (nextTerm - t)) /
-						secsFromLastCheckpoint;
-				}
-				tokensPerTerm[_token][thisTerm] += distributionAmount;
+				uint256 distributionAmount = zeroDelta
+					? toDistribute[i]
+					: (toDistribute[i] * secsFromLastTerm) / secsFromLastCheckpoint;
+				tokensPerTerm[tokens[i]][thisTerm] += distributionAmount;
 			}
-			if (isLastTerm) break;
+			if (isCurrentTerm) break;
 			t = nextTerm;
 			thisTerm = nextTerm;
 		}
@@ -594,11 +586,9 @@ contract Voter is Initializable {
 	 **/
 	function isLToken(address token) internal returns (bool) {
 		if (token.code.length == 0) return false; // check eoa address
-		bytes memory data = abi.encodeWithSelector(
-			LTOKEN_FUNC_SELECTOR,
-			address(this)
+		(bool success, ) = token.call(
+			abi.encodeWithSelector(LTOKEN_FUNC_SELECTOR, address(this))
 		);
-		(bool success, ) = token.call(data);
 		return success;
 	}
 
