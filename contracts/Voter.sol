@@ -314,7 +314,7 @@ contract Voter is Initializable {
 		_reset(_lockerId);
 		_checkpointToken();
 
-		uint256 thisVotingTerm = _calculateBasisTermTsFromCurrentTs();
+		uint256 thisVotingTerm = _nextTermTimestamp();
 		lastVoteTime[_lockerId] = thisVotingTerm;
 
 		uint256 maxUserEpoch = Ve(_ve).userPointEpoch(_lockerId);
@@ -350,7 +350,7 @@ contract Voter is Initializable {
 			thisVotingTerm += TERM;
 		}
 
-		uint256 startWeek = _calculateBasisTermTsFromCurrentTs();
+		uint256 startWeek = _nextTermTimestamp();
 		if (votedTotalVotingWeights[_lockerId][startWeek] > 0) {
 			Ve(_ve).voting(_lockerId);
 		}
@@ -395,7 +395,7 @@ contract Voter is Initializable {
 			"Over max vote end timestamp"
 		);
 		require(
-			_voteEndTimestamp > _calculateBasisTermTsFromCurrentTs(),
+			_voteEndTimestamp > _nextTermTimestamp(),
 			"Can't vote for the past"
 		);
 		uint256 _lockerId = Ve(_ve).ownerToId(msg.sender);
@@ -408,7 +408,7 @@ contract Voter is Initializable {
 	 * @param _lockerId The locker ID
 	 **/
 	function _reset(uint256 _lockerId) internal {
-		uint256 thisTerm = _calculateBasisTermTsFromCurrentTs();
+		uint256 thisTerm = _nextTermTimestamp();
 		lastVoteTime[_lockerId] = thisTerm;
 
 		for (uint256 j = 0; j < 105; j++) {
@@ -592,15 +592,10 @@ contract Voter is Initializable {
 	}
 
 	/**
-	 * @notice Calculate this term from block.timestamp
-	 * @dev about minus 1: include the beginning of next term in this term
-	 * @return timestamp of this term
+	 * @notice Get the next term timestamp
+	 * @return timestamp of next term
 	 **/
-	function _calculateBasisTermTsFromCurrentTs()
-		internal
-		view
-		returns (uint256)
-	{
+	function _nextTermTimestamp() internal view returns (uint256) {
 		return _roundDownToTerm(block.timestamp - 1) + TERM;
 	}
 
