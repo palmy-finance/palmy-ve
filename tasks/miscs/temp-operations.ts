@@ -429,7 +429,7 @@ task(
     const ltoken = LToken__factory.connect(token, ethers.provider)
     const decimals = await ltoken.decimals()
     const _token = await voter.tokens(i)
-    const tokenLastBalance = await voter.tokenLastBalance(i)
+    const tokenLastBalance = await voter.tokenLastScaledBalance(i)
     console.log({
       fromTokenList: token,
       fromTokens: _token,

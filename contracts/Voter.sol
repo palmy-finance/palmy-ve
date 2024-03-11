@@ -26,8 +26,6 @@ contract Voter is Initializable {
 	uint256 public constant MAX_VOTE_DURATION = 6 * MONTH;
 	address public _ve; // the ve token that governs these contracts
 	address internal base;
-	uint256 public deployedTimestamp;
-	uint256 public deployedTermTimestamp;
 
 	// state variables
 	struct SuspendedToken {
@@ -47,10 +45,10 @@ contract Voter is Initializable {
 	mapping(uint256 => mapping(uint256 => uint256))
 		public votedTotalVotingWeights; // lockerId => total voting weight of user for each terms
 
-	uint256[1000] public tokenLastBalance;
+	uint256[1000] public tokenLastScaledBalance;
 	mapping(address => mapping(uint256 => uint256)) public tokensPerTerm; // token => timestamp of term => amount
 	uint256 public lastCheckpoint;
-	uint256 public START_TIME;
+	uint256 public startTime;
 	mapping(uint256 => uint256) public lastVoteTime;
 	mapping(uint256 => uint256) public lastClaimTime;
 
@@ -80,9 +78,7 @@ contract Voter is Initializable {
 		address _votingEscrow
 	) public initializer {
 		require(_votingEscrow != address(0), "Zero address cannot be set");
-		START_TIME = _roundDownToTerm(block.timestamp);
-		deployedTimestamp = block.timestamp;
-		deployedTermTimestamp = _roundDownToTerm(block.timestamp);
+		startTime = _roundDownToTerm(block.timestamp);
 		lendingPool = _lendingPool;
 		_ve = _votingEscrow;
 		base = Ve(_votingEscrow).token();
@@ -101,7 +97,7 @@ contract Voter is Initializable {
 	 * @notice Get term index from inputted timestamp
 	 */
 	function _termIndexFromTimestamp(uint256 _t) internal view returns (uint256) {
-		return (_t - deployedTermTimestamp) / TERM;
+		return (_t - startTime) / TERM;
 	}
 
 	/**
@@ -124,7 +120,7 @@ contract Voter is Initializable {
 	function _termTimestampFromIndex(
 		uint256 _index
 	) internal view returns (uint256) {
-		return _index * TERM + deployedTermTimestamp;
+		return _index * TERM + startTime;
 	}
 
 	/**
@@ -149,14 +145,14 @@ contract Voter is Initializable {
 	function _checkpointToken() internal {
 		if (lastCheckpoint > block.timestamp) return; // not distribute if initial term (can't vote)
 
-		uint256[] memory tokenBalance = new uint256[](tokens.length);
+		uint256[] memory tokenScaledBalance = new uint256[](tokens.length);
 		uint256[] memory toDistribute = new uint256[](tokens.length);
 
 		for (uint256 i = 0; i < tokens.length; i++) {
 			LToken _lToken = LToken(tokens[i]);
-			tokenBalance[i] = _lToken.scaledBalanceOf(address(this));
-			toDistribute[i] = tokenBalance[i] - tokenLastBalance[i];
-			tokenLastBalance[i] = tokenBalance[i];
+			tokenScaledBalance[i] = _lToken.scaledBalanceOf(address(this));
+			toDistribute[i] = tokenScaledBalance[i] - tokenLastScaledBalance[i];
+			tokenLastScaledBalance[i] = tokenScaledBalance[i];
 		}
 
 		uint256 t = lastCheckpoint;
@@ -167,14 +163,15 @@ contract Voter is Initializable {
 		for (uint256 j = 0; j < 50; j++) {
 			uint256 nextTerm = thisTerm + TERM;
 			bool isCurrentTerm = nextTerm > block.timestamp;
-			uint256 secsFromLastTerm = isCurrentTerm
+			uint256 secsFromLastTermSinceLastTerm = isCurrentTerm
 				? block.timestamp - t
 				: nextTerm - t;
-			bool zeroDelta = secsFromLastCheckpoint == 0 && secsFromLastTerm == 0;
+			bool zeroDelta = secsFromLastCheckpoint == 0;
 			for (uint256 i = 0; i < tokens.length; i++) {
 				uint256 distributionAmount = zeroDelta
 					? toDistribute[i]
-					: (toDistribute[i] * secsFromLastTerm) / secsFromLastCheckpoint;
+					: (toDistribute[i] * secsFromLastTermSinceLastTerm) /
+						secsFromLastCheckpoint;
 				tokensPerTerm[tokens[i]][thisTerm] += distributionAmount;
 			}
 			if (isCurrentTerm) break;
@@ -205,7 +202,7 @@ contract Voter is Initializable {
 
 	function _addToken(address _token, uint256 balance) internal {
 		tokenIndex[_token] = tokens.length + 1;
-		tokenLastBalance[tokens.length] = balance;
+		tokenLastScaledBalance[tokens.length] = balance;
 		tokens.push(_token);
 	}
 
@@ -222,23 +219,26 @@ contract Voter is Initializable {
 			arrIdx < tokens.length,
 			"unexpected error: Need that arrIdx < tokens.length"
 		);
-		uint256 vacantTokenLastBalance = tokenLastBalance[tokens.length];
+		uint256 vacantTokenLastBalance = tokenLastScaledBalance[tokens.length];
 		require(
 			vacantTokenLastBalance == 0,
 			"unexpected error: tokenLastBalance without token is greater than 0"
 		);
 		suspendedTokens.push(
-			SuspendedToken({ token: _token, lastBalance: tokenLastBalance[arrIdx] })
+			SuspendedToken({
+				token: _token,
+				lastBalance: tokenLastScaledBalance[arrIdx]
+			})
 		);
 		for (uint256 i = arrIdx; i < tokens.length - 1; i++) {
 			address iToken = tokens[i + 1];
 			tokens[i] = iToken;
 			tokenIndex[iToken] = tokenIndex[iToken] - 1;
-			uint256 nextTLastBalance = tokenLastBalance[i + 1];
-			tokenLastBalance[i] = nextTLastBalance;
+			uint256 nextTLastBalance = tokenLastScaledBalance[i + 1];
+			tokenLastScaledBalance[i] = nextTLastBalance;
 		}
 
-		tokenLastBalance[tokens.length - 1] = 0;
+		tokenLastScaledBalance[tokens.length - 1] = 0;
 		tokens.pop();
 		tokenIndex[_token] = 0;
 	}
@@ -499,7 +499,7 @@ contract Voter is Initializable {
 		uint256 _lockerId
 	) internal view returns (uint256, ClaimableAmount[] memory) {
 		uint256 t = lastClaimTime[_lockerId];
-		if (t == 0) t = START_TIME;
+		if (t == 0) t = startTime;
 		uint256 thisTerm = _roundDownToTerm(t);
 		uint256 roundedLastTokenTime = _roundDownToTerm(lastCheckpoint);
 		ClaimableAmount[] memory claimableAmounts = new ClaimableAmount[](
@@ -569,7 +569,7 @@ contract Voter is Initializable {
 		uint256[] memory claimAmounts = new uint256[](tokens.length);
 		for (uint256 i = 0; i < tokens.length; i++) {
 			if (claimAmount[i].amount == 0) continue;
-			tokenLastBalance[i] -= claimAmount[i].scaledAmount;
+			tokenLastScaledBalance[i] -= claimAmount[i].scaledAmount;
 			claimAmounts[i] = claimAmount[i].amount;
 			require(
 				LToken(tokens[i]).transfer(_owner, claimAmount[i].amount),

@@ -110,9 +110,9 @@ describe('Voter.sol Part2', () => {
         _term,
       ] = await Promise.all([
         voter._ve(),
-        voter.START_TIME().then((v) => v.toNumber()),
+        voter.startTime().then((v) => v.toNumber()),
         voter.lastCheckpoint().then((v) => v.toNumber()),
-        voter.deployedTermTimestamp().then((v) => v.toNumber()),
+        voter.startTime().then((v) => v.toNumber()),
         voter.minter(),
         voter.TERM(),
       ])
@@ -198,7 +198,7 @@ describe('Voter.sol Part2', () => {
         // exec mint to voter
         await (await ltoken.mint(voter.address, parseEther('1'))).wait()
 
-        const startTerm = (await voter.START_TIME()).toNumber()
+        const startTerm = (await voter.startTime()).toNumber()
         return {
           voter,
           ltoken,
@@ -316,7 +316,7 @@ describe('Voter.sol Part2', () => {
           expect(balance.isZero()).to.true
 
           const tIndex = (await voter.tokenIndex(t.address)).toNumber()
-          const tLastBalance = await voter.tokenLastBalance(tIndex - 1)
+          const tLastBalance = await voter.tokenLastScaledBalance(tIndex - 1)
           expect(tLastBalance.isZero()).to.true
         }
 
@@ -331,7 +331,7 @@ describe('Voter.sol Part2', () => {
 
         // Check
         const cTIndex = (await voter.tokenIndex(CToken.address)).toNumber()
-        const cTLastBalance = await voter.tokenLastBalance(cTIndex - 1)
+        const cTLastBalance = await voter.tokenLastScaledBalance(cTIndex - 1)
         expect(cTLastBalance).to.eq(scaledBalanceOf)
 
         for await (const t of [AToken, BToken, DToken]) {
@@ -339,7 +339,7 @@ describe('Voter.sol Part2', () => {
           expect(balance.isZero()).to.true
 
           const tIndex = (await voter.tokenIndex(t.address)).toNumber()
-          const tLastBalance = await voter.tokenLastBalance(tIndex - 1)
+          const tLastBalance = await voter.tokenLastScaledBalance(tIndex - 1)
           expect(tLastBalance.isZero()).to.true
         }
       })
@@ -355,14 +355,18 @@ describe('Voter.sol Part2', () => {
         ethers.provider.send('evm_mine', [_currentTerm + TERM + 1])
 
         // Prerequisites
-        const initialLastBalance = await voter.tokenLastBalance(tIndex - 1)
+        const initialLastBalance = await voter.tokenLastScaledBalance(
+          tIndex - 1
+        )
         expect(initialLastBalance.isZero()).to.true
 
         const execAndGetBalances = async (amount: BigNumber) => {
           await (await addedTkn.mint(voter.address, amount)).wait()
           await (await voter.checkpointToken()).wait()
           const scaledBalanceOf = await addedTkn.scaledBalanceOf(voter.address)
-          const tokenLastBalance = await voter.tokenLastBalance(tIndex - 1)
+          const tokenLastBalance = await voter.tokenLastScaledBalance(
+            tIndex - 1
+          )
           return {
             scaledBalanceOf,
             tokenLastBalance,
@@ -391,11 +395,11 @@ describe('Voter.sol Part2', () => {
         }
         await (await voter.checkpointToken()).wait()
         const scaledBalanceOf = await addedTkn.scaledBalanceOf(voter.address)
-        const tokenLastBalance = await voter.tokenLastBalance(tIndex - 1)
+        const tokenLastBalance = await voter.tokenLastScaledBalance(tIndex - 1)
         expect(tokenLastBalance).to.eq(scaledBalanceOf)
         // Extra: only checkpoint
         await (await voter.checkpointToken()).wait()
-        const _tokenLastBalance = await voter.tokenLastBalance(tIndex - 1)
+        const _tokenLastBalance = await voter.tokenLastScaledBalance(tIndex - 1)
         expect(_tokenLastBalance).to.eq(scaledBalanceOf)
       })
     })
@@ -455,10 +459,10 @@ describe('Voter.sol Part2', () => {
         await (await voter.checkpointToken()).wait()
 
         tokenLastBalances = {
-          AToken: await voter.tokenLastBalance(0),
-          BToken: await voter.tokenLastBalance(1),
-          CToken: await voter.tokenLastBalance(2),
-          DToken: await voter.tokenLastBalance(3),
+          AToken: await voter.tokenLastScaledBalance(0),
+          BToken: await voter.tokenLastScaledBalance(1),
+          CToken: await voter.tokenLastScaledBalance(2),
+          DToken: await voter.tokenLastScaledBalance(3),
         }
         expect(tokenLastBalances.AToken).to.eq(aScaled)
         expect(tokenLastBalances.AToken).to.eq(BigNumber.from('0'))
@@ -519,7 +523,7 @@ describe('Voter.sol Part2', () => {
           const idx = (await voter.tokenIndex(p.token.address)).toNumber()
           expect(idx).to.eq(p.tokenIndex)
           if (p.tokenIndex == 0) continue
-          const tokenLastBalance = await voter.tokenLastBalance(
+          const tokenLastBalance = await voter.tokenLastScaledBalance(
             p.tokenIndex - 1
           )
           console.log(
@@ -542,7 +546,7 @@ describe('Voter.sol Part2', () => {
           const idx = (await voter.tokenIndex(p.token.address)).toNumber()
           expect(idx).to.eq(p.tokenIndex)
           if (p.tokenIndex == 0) continue
-          const tokenLastBalance = await voter.tokenLastBalance(
+          const tokenLastBalance = await voter.tokenLastScaledBalance(
             p.tokenIndex - 1
           )
           console.log(
@@ -569,7 +573,7 @@ describe('Voter.sol Part2', () => {
         for await (const [i, p] of params.entries()) {
           const idx = (await voter.tokenIndex(p.token.address)).toNumber()
           expect(idx).to.eq(p.tokenIndex)
-          const tokenLastBalance = await voter.tokenLastBalance(
+          const tokenLastBalance = await voter.tokenLastScaledBalance(
             p.tokenIndex - 1
           )
           expect(tokenLastBalance).to.eq(tokenLastBalances[params[i].key])
@@ -1830,7 +1834,7 @@ describe('Voter.sol Part2', () => {
         const AMOUNT = parseEther('100')
         const LOCK_DURATION = 2 * YEAR
 
-        const startTerm = (await voter.START_TIME()).toNumber()
+        const startTerm = (await voter.startTime()).toNumber()
         //ethers.provider.send('evm_mine', [startTerm + TERM - DAY])
 
         let tx: ContractTransaction

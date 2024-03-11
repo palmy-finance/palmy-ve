@@ -60,7 +60,7 @@ const checkVoter = async (args: Args) => {
   const targets = [
     { label: '_ve', fn: _instance._ve },
     { label: 'lastCheckpoint', fn: _instance.lastCheckpoint },
-    { label: 'startTime', fn: _instance.START_TIME },
+    { label: 'startTime', fn: _instance.startTime },
     { label: 'minter', fn: _instance.minter },
     { label: '_term', fn: _instance.TERM },
     { label: 'maxVoteDuration', fn: _instance.MAX_VOTE_DURATION },
@@ -74,7 +74,7 @@ const checkVoter = async (args: Args) => {
     console.log(`tokens(${i}) ... ${await _instance.tokens(i)}`)
     console.log(`totalWeight(${i}) ... ${await _instance.totalWeight(i)}`)
     console.log(
-      `tokenLastBalance(${i}) ... ${await _instance.tokenLastBalance(i)}`
+      `tokenLastBalance(${i}) ... ${await _instance.tokenLastScaledBalance(i)}`
     )
   }
   console.log(`--- [end] Voter ---`)
