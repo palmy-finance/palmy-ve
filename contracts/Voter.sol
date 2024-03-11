@@ -349,11 +349,6 @@ contract Voter is Initializable {
 			}
 			thisVotingTerm += TERM;
 		}
-
-		uint256 startWeek = _nextTermTimestamp();
-		if (votedTotalVotingWeights[_lockerId][startWeek] > 0) {
-			Ve(_ve).voting(_lockerId);
-		}
 	}
 
 	/**
@@ -442,7 +437,6 @@ contract Voter is Initializable {
 			weights[_lockerId][tokens[i]] = 0;
 		}
 		_reset(_lockerId);
-		Ve(_ve).abstain(_lockerId);
 	}
 
 	/**

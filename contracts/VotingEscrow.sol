@@ -479,18 +479,6 @@ contract VotingEscrow is Initializable, Ve {
 		voter = _voter;
 	}
 
-	function voting(uint256 _lockerId) external onlyVoter {
-		voted[_lockerId] = true;
-	}
-
-	function abstain(uint256 _lockerId) external onlyVoter {
-		voted[_lockerId] = false;
-	}
-
-	function isVoted(uint256 _lockerId) external view returns (bool) {
-		return voted[_lockerId];
-	}
-
 	/// @notice Record global data to checkpoint
 	function checkpoint() external {
 		_checkpoint(0, LockedBalance(0, 0), LockedBalance(0, 0));

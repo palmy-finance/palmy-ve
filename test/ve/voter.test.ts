@@ -167,9 +167,7 @@ describe('voter', () => {
   })
 
   it('reset voting', async () => {
-    expect(await ve.isVoted(1)).to.be.equal(true)
     await vevoter.connect(user1).reset()
-    expect(await ve.isVoted(1)).to.be.equal(false)
   })
 
   it('Distribute fees to user1, user2, and user3 with same voting weight: The distibuted fees should be the same amount for the users', async () => {
