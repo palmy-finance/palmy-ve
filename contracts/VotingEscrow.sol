@@ -84,7 +84,6 @@ contract VotingEscrow is Initializable, Ve {
 	mapping(uint256 => uint256) public userPointEpoch; // locker id -> LockedBalance
 	mapping(uint256 => int128) public slopeChanges; // time -> signed slope change
 
-	mapping(uint256 => bool) public voted; // locker id -> bool (isVoted)
 	address public voter;
 	mapping(address => bool) public agencies;
 
