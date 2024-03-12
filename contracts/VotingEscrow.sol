@@ -72,6 +72,7 @@ contract VotingEscrow is Initializable, Ve {
 	uint256 internal constant MAXTIME_ON_WEEKLY_BASIS = 2 * 52 * 7 * 86400; // set by number of weeks (approximate value of 2 years)
 	int128 internal constant iMAXTIME_ON_WEEKLY_BASIS = 2 * 52 * 7 * 86400; // set by number of weeks (approximate value of 2 years)
 	uint256 internal constant MULTIPLIER = 1 ether;
+	uint256 internal constant MAX_CLAIMABLE_TERM = 255;
 
 	address public token;
 	uint256 public supply;
@@ -304,7 +305,7 @@ contract VotingEscrow is Initializable, Ve {
 		// Go over terms to fill history and calculate what the current point is
 		{
 			uint256 t_i = _roundDownToTerm(lastCheckpoint);
-			for (uint256 i = 0; i < 255; ++i) {
+			for (uint256 i = 0; i < MAX_CLAIMABLE_TERM; ++i) {
 				// Hopefully it won't happen that this won't get used in 5 years!
 				// If it does, users will be able to withdraw but vote weight will be broken
 				t_i += _term;
@@ -786,7 +787,7 @@ contract VotingEscrow is Initializable, Ve {
 		require(t >= point.ts, "Requires that t >= point.ts");
 		Point memory lastPoint = point;
 		uint256 t_i = _roundDownToTerm(lastPoint.ts);
-		for (uint256 i = 0; i < 255; ++i) {
+		for (uint256 i = 0; i < MAX_CLAIMABLE_TERM; ++i) {
 			t_i += _term;
 			int128 dSlope = 0;
 			if (t_i > t) {

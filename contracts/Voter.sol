@@ -26,6 +26,7 @@ contract Voter is Initializable {
 	uint256 public constant MAX_VOTE_DURATION = 6 * MONTH;
 	address public _ve; // the ve token that governs these contracts
 	address internal base;
+	uint256 constant MAX_CLAIMABLE_TERM = 255;
 
 	// state variables
 	struct SuspendedToken {
@@ -160,7 +161,7 @@ contract Voter is Initializable {
 		lastCheckpoint = block.timestamp;
 		uint256 thisTerm = _roundDownToTerm(t);
 
-		for (uint256 j = 0; j < 50; j++) {
+		for (uint256 j = 0; j < MAX_CLAIMABLE_TERM; j++) {
 			uint256 nextTerm = thisTerm + TERM;
 			bool isCurrentTerm = nextTerm > block.timestamp;
 			uint256 secsFromLastTermSinceLastTerm = isCurrentTerm
@@ -496,11 +497,17 @@ contract Voter is Initializable {
 		if (t == 0) t = startTime;
 		uint256 thisTerm = _roundDownToTerm(t);
 		uint256 roundedLastTokenTime = _roundDownToTerm(lastCheckpoint);
+		uint256[] memory indexes = new uint256[](tokens.length);
+		for (uint256 i = 0; i < tokens.length; i++) {
+			indexes[i] = ILendingPool(lendingPool).getReserveNormalizedIncome(
+				LToken(tokens[i]).UNDERLYING_ASSET_ADDRESS()
+			);
+		}
 		ClaimableAmount[] memory claimableAmounts = new ClaimableAmount[](
 			tokens.length
 		);
 
-		for (uint256 j = 0; j < 105; j++) {
+		for (uint256 j = 0; j < MAX_CLAIMABLE_TERM; j++) {
 			if (thisTerm >= roundedLastTokenTime) {
 				break;
 			}
@@ -512,15 +519,9 @@ contract Voter is Initializable {
 				uint256 userVote = votes[_lockerId][_token][thisTerm];
 				uint256 totalVotes = poolWeights[_token][thisTerm];
 				uint256 scaledDistribute = (distributionTotal * userVote) / totalVotes;
-				uint256 currentIndex = ILendingPool(lendingPool)
-					.getReserveNormalizedIncome(
-						LToken(_token).UNDERLYING_ASSET_ADDRESS()
-					);
-				uint256 amount = scaledDistribute.rayMul(currentIndex);
-				claimableAmounts[i] = ClaimableAmount({
-					amount: amount,
-					scaledAmount: scaledDistribute
-				});
+				uint256 amount = scaledDistribute.rayMul(indexes[i]);
+				claimableAmounts[i].amount += amount;
+				claimableAmounts[i].scaledAmount += scaledDistribute;
 			}
 			thisTerm += TERM;
 		}
