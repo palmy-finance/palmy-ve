@@ -40,7 +40,9 @@ describe('ve', () => {
   it('reverts if the deposit amount will overflow', async () => {
     const int128MaxPlusOne = '170141183460469231731687303715884105728'
     await oal.approve(ve.address, int128MaxPlusOne)
-    await expect(ve.createLock(int128MaxPlusOne, YEAR)).to.be.revertedWith("Overflow on locked.amount")
+    await expect(ve.createLock(int128MaxPlusOne, YEAR)).to.be.revertedWith(
+      'Overflow on locked.amount'
+    )
   })
   it('Creates new lock with 50 OAL for MAXTIME: The balance of user1 should increases to 1 and the balance of the VE contract should increases to 50', async () => {
     await oal.approve(ve.address, parseEther('50'))
@@ -198,7 +200,7 @@ describe('ve', () => {
     await expect(ve.withdraw()).to.be.reverted
   })
 
-  it('Withdraws: The deposited amount should be fully withdrawn and locker ID should be burnt', async () => {
+  it('Withdraws: The deposited amount should be fully withdrawn', async () => {
     await oal.approve(ve.address, parseEther('50'))
     const lockDuration = 2 * YEAR // 2 years
 
@@ -211,11 +213,5 @@ describe('ve', () => {
 
     // The balance of OAL of user1 should be equal to initial amount
     expect(await oal.balanceOf(user1.address)).to.equal(parseEther('100'))
-    // Check that the LockerId is burnt
-    expect(await ve.balanceOfLockerId(1)).to.equal(0)
-    expect(await ve.ownerOf(1)).to.equal(ethers.constants.AddressZero)
-    expect((await ve.ownerToId(user1.address)).toString()).to.equal('0')
   })
-
-
 })

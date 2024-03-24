@@ -208,16 +208,6 @@ contract VotingEscrow is Initializable, Ve {
 		ownerToId[_to] = _lockerId;
 	}
 
-	/// @dev Remove a locker ID from a given address
-	///      Throws if `_from` is not the current owner.
-	function _removeLockerIdFrom(address _from, uint256 _lockerId) internal {
-		// Throws if `_from` is not the current owner
-		require(_isOwner(_from, _lockerId), "Addresses did not match");
-		// Change the owner
-		idToOwner[_lockerId] = address(0);
-		ownerToId[_from] = 0;
-	}
-
 	/// @dev Function to create locker ID
 	///      Throws if `_to` is zero address.
 	///      Throws if `_lockerId` is owned by someone.
@@ -633,9 +623,6 @@ contract VotingEscrow is Initializable, Ve {
 			"fail to .transfer when .withdraw"
 		);
 
-		// Burn the NFT
-		_removeLockerId(_lockerId);
-
 		emit Withdraw(msg.sender, _lockerId, value, block.timestamp);
 		emit Supply(supplyBefore, supplyBefore - value);
 	}
@@ -851,12 +838,6 @@ contract VotingEscrow is Initializable, Ve {
 		}
 		// Now dt contains info on how far are we beyond point
 		return _supplyAt(point, point.ts + dt);
-	}
-
-	function _removeLockerId(uint256 _lockerId) internal {
-		require(_isOwner(msg.sender, _lockerId), "caller is not owner");
-		// Remove locker ID
-		_removeLockerIdFrom(msg.sender, _lockerId);
 	}
 
 	/**
