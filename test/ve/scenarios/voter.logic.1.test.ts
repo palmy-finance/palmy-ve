@@ -11,7 +11,9 @@ import {
   VotingEscrow,
   Voter__factory,
   Voter,
-} from '../../types'
+  MockLendingPool__factory,
+} from '../../../types'
+import { expect } from 'chai'
 
 // Constants
 const HOUR = 60 * 60 // in minute
@@ -73,7 +75,7 @@ const multiTransferOal = async ({
 
 const multiApproveToVe = async ({
   users,
-   oal,
+  oal,
   votingEscrowAddress,
 }: {
   users: SignerWithAddress[]
@@ -102,7 +104,9 @@ const setup = async () => {
     [oal.address]
   )) as VotingEscrow
   await votingEscrow.deployTransaction.wait()
+  const lendingPool = await new MockLendingPool__factory(deployer).deploy()
   const voter = (await upgrades.deployProxy(new Voter__factory(deployer), [
+    lendingPool.address,
     votingEscrow.address,
   ])) as Voter
   await voter.deployTransaction.wait()
@@ -126,6 +130,7 @@ const setup = async () => {
     deployer,
     users: rest,
     mockLTokenAddresses: tokenAddresses,
+    lendingPool,
   }
 }
 
@@ -215,13 +220,13 @@ describe('Confirming logic of distributions', () => {
     term: number,
     ltoken: string
   ) => {
-    const [tokensPerWeek] = await Promise.all([
-      voter.tokensPerWeek(ltoken, term),
+    const [tokensPerTerm] = await Promise.all([
+      voter.tokensPerTerm(ltoken, term),
     ])
-    return tokensPerWeek
+    return tokensPerTerm
   }
 
-  describe('check .tokensPerWeek', () => {
+  describe('check .tokensPerTerm', () => {
     const LOOP = 8
     const logVoterStatus = async (
       user: SignerWithAddress,
@@ -356,7 +361,7 @@ describe('Confirming logic of distributions', () => {
       const {
         voter,
         votingEscrow,
-         oal,
+        oal,
         deployer,
         users: [user],
         mockLTokenAddresses: [lDAI],

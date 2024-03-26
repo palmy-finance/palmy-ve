@@ -18,11 +18,10 @@ contract VotingEscrowV2 is VotingEscrow {
 
 	/// @inheritdoc VotingEscrow
 	/// @dev and Throws if owner already has a locker ID.
-	function _addLockerIdTo(address _to, uint256 _lockerId)
-		internal
-		virtual
-		override
-	{
+	function _addLockerIdTo(
+		address _to,
+		uint256 _lockerId
+	) internal virtual override {
 		// Throws if `_lockerId` is owned by someone
 		require(
 			idToOwner[_lockerId] == address(0),
@@ -42,13 +41,9 @@ contract VotingEscrowV2 is VotingEscrow {
 	}
 
 	/// For Debug
-	function getOwnerFromLockerId(uint256 _lockerId)
-		external
-		view
-		virtual
-		onlyAgency
-		returns (address)
-	{
+	function getOwnerFromLockerId(
+		uint256 _lockerId
+	) external view virtual onlyAgency returns (address) {
 		return idToOwner[_lockerId];
 	}
 

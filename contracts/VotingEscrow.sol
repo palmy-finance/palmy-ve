@@ -3,7 +3,7 @@ pragma solidity 0.8.10;
 
 import "./interfaces/IERC20.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-
+import "./interfaces/Ve.sol";
 /**
 @title Voting Escrow
 @author HorizonX.tech
@@ -41,7 +41,7 @@ struct LockedBalance {
 	uint256 end;
 }
 
-contract VotingEscrow is Initializable {
+contract VotingEscrow is Initializable, Ve {
 	enum DepositType {
 		DEPOSIT_FOR_TYPE,
 		CREATE_LOCK_TYPE,
@@ -72,6 +72,7 @@ contract VotingEscrow is Initializable {
 	uint256 internal constant MAXTIME_ON_WEEKLY_BASIS = 2 * 52 * 7 * 86400; // set by number of weeks (approximate value of 2 years)
 	int128 internal constant iMAXTIME_ON_WEEKLY_BASIS = 2 * 52 * 7 * 86400; // set by number of weeks (approximate value of 2 years)
 	uint256 internal constant MULTIPLIER = 1 ether;
+	uint256 internal constant MAX_CLAIMABLE_TERM = 255;
 
 	address public token;
 	uint256 public supply;
@@ -79,12 +80,11 @@ contract VotingEscrow is Initializable {
 
 	uint256 public epoch;
 	mapping(uint256 => Point) public pointHistory; // epoch -> unsigned point
-	mapping(uint256 => mapping(uint256 => Point)) public userPointHistory; // locker id -> Point[userEpoch]
+	mapping(uint256 => mapping(uint256 => Point)) public _userPointHistory; // locker id -> Point[userEpoch]
 
 	mapping(uint256 => uint256) public userPointEpoch; // locker id -> LockedBalance
 	mapping(uint256 => int128) public slopeChanges; // time -> signed slope change
 
-	mapping(uint256 => bool) public voted; // locker id -> bool (isVoted)
 	address public voter;
 	mapping(address => bool) public agencies;
 
@@ -94,7 +94,7 @@ contract VotingEscrow is Initializable {
 	uint8 public decimals;
 
 	/// @dev Current count of locker
-	uint256 internal lockerId;
+	uint256 public lockerId;
 
 	/// @dev Mapping from locker ID to the address that owns it.
 	mapping(uint256 => address) internal idToOwner;
@@ -148,7 +148,7 @@ contract VotingEscrow is Initializable {
 	/// @return Value of the slope
 	function getLastUserSlope(uint256 _lockerId) external view returns (int128) {
 		uint256 uepoch = userPointEpoch[_lockerId];
-		return userPointHistory[_lockerId][uepoch].slope;
+		return _userPointHistoryInternal(_lockerId, uepoch).slope;
 	}
 
 	/// @notice Get the timestamp for checkpoint `_idx` for `_lockerId`
@@ -159,7 +159,7 @@ contract VotingEscrow is Initializable {
 		uint256 _lockerId,
 		uint256 _idx
 	) external view returns (uint256) {
-		return userPointHistory[_lockerId][_idx].ts;
+		return _userPointHistoryInternal(_lockerId, _idx).ts;
 	}
 
 	/// @notice Get timestamp when `_lockerId`'s lock finishes
@@ -305,7 +305,7 @@ contract VotingEscrow is Initializable {
 		// Go over terms to fill history and calculate what the current point is
 		{
 			uint256 t_i = _roundDownToTerm(lastCheckpoint);
-			for (uint256 i = 0; i < 255; ++i) {
+			for (uint256 i = 0; i < MAX_CLAIMABLE_TERM; ++i) {
 				// Hopefully it won't happen that this won't get used in 5 years!
 				// If it does, users will be able to withdraw but vote weight will be broken
 				t_i += _term;
@@ -388,8 +388,22 @@ contract VotingEscrow is Initializable {
 			userPointEpoch[_lockerId] = userEpoch;
 			uNew.ts = block.timestamp;
 			uNew.blk = block.number;
-			userPointHistory[_lockerId][userEpoch] = uNew;
+			_userPointHistory[_lockerId][userEpoch] = uNew;
 		}
+	}
+
+	function userPointHistory(
+		uint256 _lockerId,
+		uint256 loc
+	) external view override returns (Point memory) {
+		return _userPointHistoryInternal(_lockerId, loc);
+	}
+
+	function _userPointHistoryInternal(
+		uint256 _lockerId,
+		uint256 loc
+	) internal view returns (Point memory) {
+		return _userPointHistory[_lockerId][loc];
 	}
 
 	/// @notice Deposit and lock tokens for a user
@@ -410,6 +424,11 @@ contract VotingEscrow is Initializable {
 
 		LockedBalance memory oldLocked;
 		(oldLocked.amount, oldLocked.end) = (_locked.amount, _locked.end);
+		require(
+			int256(_locked.amount) + int256(_value) <= type(int128).max,
+			"Overflow on locked.amount"
+		);
+
 		// Adding to existing lock, or if a lock is expired - creating a new one
 		if (_value != 0) {
 			_locked.amount += int128(int256(_value));
@@ -458,18 +477,6 @@ contract VotingEscrow is Initializable {
 	function setVoter(address _voter) external onlyVoter {
 		require(_voter != address(0), "Zero address cannot be set");
 		voter = _voter;
-	}
-
-	function voting(uint256 _lockerId) external onlyVoter {
-		voted[_lockerId] = true;
-	}
-
-	function abstain(uint256 _lockerId) external onlyVoter {
-		voted[_lockerId] = false;
-	}
-
-	function isVoted(uint256 _lockerId) external view returns (bool) {
-		return voted[_lockerId];
 	}
 
 	/// @notice Record global data to checkpoint
@@ -677,7 +684,7 @@ contract VotingEscrow is Initializable {
 		if (_epoch == 0) {
 			return 0;
 		} else {
-			Point memory lastPoint = userPointHistory[_lockerId][_epoch];
+			Point memory lastPoint = _userPointHistoryInternal(_lockerId, _epoch);
 			lastPoint.bias -=
 				lastPoint.slope *
 				int128(int256(_t) - int256(lastPoint.ts));
@@ -726,14 +733,14 @@ contract VotingEscrow is Initializable {
 				break;
 			}
 			uint256 _mid = (_min + _max + 1) / 2;
-			if (userPointHistory[_lockerId][_mid].blk <= _block) {
+			if (_userPointHistoryInternal(_lockerId, _mid).blk <= _block) {
 				_min = _mid;
 			} else {
 				_max = _mid - 1;
 			}
 		}
 
-		Point memory upoint = userPointHistory[_lockerId][_min];
+		Point memory upoint = _userPointHistoryInternal(_lockerId, _min);
 
 		uint256 maxEpoch = epoch;
 		uint256 _epoch = _findBlockEpoch(_block, maxEpoch);
@@ -780,7 +787,7 @@ contract VotingEscrow is Initializable {
 		require(t >= point.ts, "Requires that t >= point.ts");
 		Point memory lastPoint = point;
 		uint256 t_i = _roundDownToTerm(lastPoint.ts);
-		for (uint256 i = 0; i < 255; ++i) {
+		for (uint256 i = 0; i < MAX_CLAIMABLE_TERM; ++i) {
 			t_i += _term;
 			int128 dSlope = 0;
 			if (t_i > t) {

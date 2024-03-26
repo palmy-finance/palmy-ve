@@ -1,15 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.10;
-import "hardhat/console.sol";
-import { WadRayMath } from "./libraries/WadRayMath.sol";
+import { WadRayMath } from "../libraries/WadRayMath.sol";
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import { LToken } from "../interfaces/LToken.sol";
+import { ILendingPool } from "../interfaces/ILendingPool.sol";
 
 /**
  * @title Palmy ERC20 LToken
  * @dev Implementation of the interest bearing token for the Palmy protocol
  * @author HorizonX.tech
  */
-contract MockLToken {
+contract MockLToken is LToken {
 	mapping(address => uint256) private _balances;
 
 	mapping(address => mapping(address => uint256)) private _allowances;
@@ -19,11 +20,9 @@ contract MockLToken {
 	string public name;
 	string public symbol;
 
-	uint256 start_time;
-
 	uint256 internal constant RAY = 1e27;
 	uint256 internal constant INDEX_GAP = 123 * 1e23;
-	uint256 internal constant INDEX = RAY + INDEX_GAP; // ref: ReserveData.liquidityIndex
+	uint256 internal idx = RAY + INDEX_GAP; // ref: ReserveData.liquidityIndex
 
 	constructor(string memory _name, string memory _symbol) {
 		name = _name;
@@ -31,6 +30,18 @@ contract MockLToken {
 	}
 
 	using WadRayMath for uint256;
+
+	function index() external view returns (uint256) {
+		return _index();
+	}
+
+	function _index() internal view returns (uint256) {
+		return idx;
+	}
+
+	function setIndex(uint256 _idx) external {
+		idx = _idx;
+	}
 
 	/**
 	 * @dev Mints `amount` lTokens to `user`
@@ -42,10 +53,7 @@ contract MockLToken {
 	function mint(address user, uint256 amount) external returns (bool) {
 		uint256 previousBalance = _balances[user];
 
-		uint256 amountScaled = amount.rayDiv(INDEX);
-
-		//console.log("minted amount is %s", amount);
-		//console.log("minted scaled amount is %s", amount.rayDiv(index));
+		uint256 amountScaled = amount.rayDiv(_index());
 
 		_mint(user, amountScaled);
 
@@ -63,10 +71,7 @@ contract MockLToken {
 			return;
 		}
 
-		//console.log("minted amount is %s", amount);
-		//console.log("minted scaled amount is %s", amount.rayDiv(index));
-
-		_mint(voter, amount.rayDiv(INDEX));
+		_mint(voter, amount.rayDiv(_index()));
 	}
 
 	/**
@@ -75,9 +80,7 @@ contract MockLToken {
 	 * @return The balance of the user
 	 **/
 	function balanceOf(address user) public view returns (uint256) {
-		//console.log("scaled balance is %s", _balances[user]);
-		//console.log("balance is %s", _balances[user].rayMul(index));
-		return _balances[user].rayMul(INDEX);
+		return _balances[user].rayMul(_index());
 	}
 
 	function scaledBalanceOf(address user) external view returns (uint256) {
@@ -92,19 +95,13 @@ contract MockLToken {
 	 * @param amount The amount getting transferred
 	 **/
 	function _transfer(address from, address to, uint256 amount) internal {
-		uint256 index = INDEX;
 		uint256 fromBalance = _balances[from];
 		require(
-			fromBalance >= amount.rayDiv(index),
+			fromBalance >= amount.rayDiv(_index()),
 			"ERC20: transfer amount exceeds balance"
 		);
-		unchecked {
-			_balances[from] -= amount.rayDiv(index);
-		}
-		_balances[to] += amount.rayDiv(index);
-
-		//console.log("transferred amount is %s", amount);
-		//console.log("transferred scaled amount is %s", amount.rayDiv(index));
+		_balances[from] -= amount.rayDiv(_index());
+		_balances[to] += amount.rayDiv(_index());
 	}
 
 	function approve(
@@ -140,5 +137,26 @@ contract MockLToken {
 		address owner = msg.sender;
 		_transfer(owner, to, amount);
 		return true;
+	}
+
+	function decimals() external pure override returns (uint8) {
+		revert("decimals not implemented");
+	}
+
+	function totalSupply() external pure override returns (uint256) {
+		revert("totalSupply not implemented");
+	}
+
+	function scaledTotalSupply() external pure override returns (uint256) {
+		revert("scaledTotalSupply not implemented");
+	}
+
+	function UNDERLYING_ASSET_ADDRESS() external view override returns (address) {
+		return address(this);
+	}
+
+	function burn(address user, uint256 amount) external {
+		_balances[user] -= amount;
+		_totalSupply -= amount;
 	}
 }

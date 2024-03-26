@@ -5,13 +5,14 @@ import { formatEther, parseEther } from 'ethers/lib/utils'
 import { ethers, upgrades } from 'hardhat'
 import {
   MockLToken__factory,
+  MockLendingPool__factory,
   Token,
   Token__factory,
   Voter,
   Voter__factory,
   VotingEscrow,
   VotingEscrow__factory,
-} from '../../types'
+} from '../../../types'
 
 // Constants
 const HOUR = 60 * 60 // in minute
@@ -55,7 +56,7 @@ const multiTransferOal = async ({
   users,
   length,
   amount,
-   oal,
+  oal,
   holder,
 }: {
   users: SignerWithAddress[]
@@ -74,7 +75,7 @@ const multiTransferOal = async ({
 
 const multiApproveToVe = async ({
   users,
-   oal,
+  oal,
   votingEscrowAddress,
 }: {
   users: SignerWithAddress[]
@@ -103,7 +104,9 @@ const setup = async () => {
     [oal.address]
   )) as VotingEscrow
   await votingEscrow.deployTransaction.wait()
+  const lendingPool = await new MockLendingPool__factory(deployer).deploy()
   const voter = (await upgrades.deployProxy(new Voter__factory(deployer), [
+    lendingPool.address,
     votingEscrow.address,
   ])) as Voter
   await voter.deployTransaction.wait()
@@ -127,6 +130,7 @@ const setup = async () => {
     deployer,
     users: rest,
     mockLTokenAddresses: tokenAddresses,
+    lendingPool,
   }
 }
 
@@ -161,7 +165,7 @@ describe('Voter.sol: Confirming logic to check voted weights', () => {
     beforeEach(async () => {
       const { term } = await _current(ethers.provider)
       ethers.provider.send('evm_mine', [term + TERM + 1 * HOUR]) // proceeded time to immediately after the start
-      const {  oal, votingEscrow, voter, deployer, users, mockLTokenAddresses } =
+      const { oal, votingEscrow, voter, deployer, users, mockLTokenAddresses } =
         await setup()
       _users = users.splice(0, NUM_OF_USERS)
 
@@ -170,12 +174,12 @@ describe('Voter.sol: Confirming logic to check voted weights', () => {
         users: _users,
         length: NUM_OF_USERS,
         amount: parseEther('100'),
-         oal,
+        oal,
         holder: deployer,
       })
       await multiApproveToVe({
         users: _users,
-         oal,
+        oal,
         votingEscrowAddress: votingEscrow.address,
       })
       const tx1 = await votingEscrow

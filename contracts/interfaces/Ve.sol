@@ -16,23 +16,19 @@ interface Ve {
 
 	function userPointEpoch(uint256 lockerId) external view returns (uint256);
 
-	function userPointHistory(uint256 lockerId, uint256 loc)
-		external
-		view
-		returns (Point memory);
+	function userPointHistory(
+		uint256 lockerId,
+		uint256 loc
+	) external view returns (Point memory);
 
 	function token() external view returns (address);
 
-	function isOwner(address _spender, uint256 _lockerId)
-		external
-		view
-		returns (bool);
+	function isOwner(
+		address _spender,
+		uint256 _lockerId
+	) external view returns (bool);
 
 	function ownerOf(uint256 _lockerId) external view returns (address);
-
-	function voting(uint256 lockerId) external;
-
-	function abstain(uint256 lockerId) external;
 
 	function lockedEnd(uint256 _lockerId) external view returns (uint256);
 }

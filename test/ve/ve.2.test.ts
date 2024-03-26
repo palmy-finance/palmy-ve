@@ -989,42 +989,6 @@ describe('VotingEscrow.sol Part2', () => {
     })
   })
 
-  describe('.voting', () => {
-    it('revert if not voter', async () => {
-      const {
-        votingEscrow,
-        users: [user],
-      } = await setup()
-
-      // Prerequisites
-      const voter = await votingEscrow.connect(ethers.provider).voter()
-      expect(voter).not.to.eq(user.address)
-
-      // Execute
-      await expect(votingEscrow.connect(user).voting(0)).to.be.revertedWith(
-        'msg.sender is not voter'
-      )
-    })
-  })
-
-  describe('.abstain', () => {
-    it('revert if not voter', async () => {
-      const {
-        votingEscrow,
-        users: [user],
-      } = await setup()
-
-      // Prerequisites
-      const voter = await votingEscrow.connect(ethers.provider).voter()
-      expect(voter).not.to.eq(user.address)
-
-      // Execute
-      await expect(votingEscrow.connect(user).abstain(0)).to.be.revertedWith(
-        'msg.sender is not voter'
-      )
-    })
-  })
-
   describe('.createLockFor', () => {
     const AMOUNT = parseEther('1')
     const _setup = async () => {

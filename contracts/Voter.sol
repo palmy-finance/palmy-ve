@@ -3,7 +3,9 @@ pragma solidity 0.8.10;
 
 import "./interfaces/LToken.sol";
 import "./interfaces/Ve.sol";
+import "./interfaces/ILendingPool.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "./libraries/WadRayMath.sol";
 
 /**
  * @title Voter contract
@@ -13,32 +15,40 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
  * @author HorizonX.tech
  **/
 contract Voter is Initializable {
+	using WadRayMath for uint256;
+
+	// constants
 	uint256 constant WEEK = 7 * 86400;
 	uint256 constant MONTH = 30 * 86400;
-	uint256 public _term;
-	uint256 public maxVoteDuration;
+	bytes4 internal constant LTOKEN_FUNC_SELECTOR = 0x1da24f3e; // selector to check whether ltoken or not scaledBalanceOf(address)
+	address public lendingPool;
+	uint256 public constant TERM = 2 * WEEK;
+	uint256 public constant MAX_VOTE_DURATION = 6 * MONTH;
 	address public _ve; // the ve token that governs these contracts
 	address internal base;
-	bytes4 internal ltoken_func_selector; // selector to check whether ltoken or not
+	uint256 constant MAX_CLAIMABLE_TERM = 255;
+
+	// state variables
+	struct SuspendedToken {
+		address token;
+		uint256 lastBalance;
+	}
+
+	SuspendedToken[] public suspendedTokens;
 
 	mapping(uint256 => uint256) public totalWeight; // total voting weight
-
 	address[] public tokens; // all tokens viable for incentives
 	mapping(address => uint256) public tokenIndex;
 	mapping(address => mapping(uint256 => uint256)) public poolWeights; // pool => weight
-	mapping(address => address) public pools; // token => pool
 	mapping(uint256 => mapping(address => mapping(uint256 => uint256)))
 		public votes; // lockerId => pool => votes
 	mapping(uint256 => mapping(address => uint256)) public weights; // lockerId => pool => weights
 	mapping(uint256 => mapping(uint256 => uint256))
 		public votedTotalVotingWeights; // lockerId => total voting weight of user for each terms
-	mapping(address => bool) public isWhitelisted; // for tokens - whether or not registered
-	mapping(address => bool) public isSuspended; // for tokens - whether it is valid
 
-	uint256[1000] public tokenLastBalance;
-	mapping(address => uint256) public suspendedTokenLastBalance; // tokenLastBalance for suspended tokens
-	mapping(address => mapping(uint256 => uint256)) public tokensPerWeek; // token => timestamp of term => amount
-	uint256 public lastTokenTime;
+	uint256[1000] public tokenLastScaledBalance;
+	mapping(address => mapping(uint256 => uint256)) public tokensPerTerm; // token => timestamp of term => amount
+	uint256 public lastCheckpoint;
 	uint256 public startTime;
 	mapping(uint256 => uint256) public lastVoteTime;
 	mapping(uint256 => uint256) public lastClaimTime;
@@ -46,10 +56,6 @@ contract Voter is Initializable {
 	mapping(uint256 => uint256) public voteEndTime; // lockerId => the end of voting period
 
 	address public minter;
-
-	/// @dev timestamp at deploying
-	uint256 public timestampAtDeployed;
-	uint256 public termTimestampAtDeployed;
 
 	event Voted(
 		address indexed voter,
@@ -68,19 +74,16 @@ contract Voter is Initializable {
 
 	/// @notice initializer for upgradable contract instead of constructor
 	/// @param _votingEscrow VotingEscrow address
-	function initialize(address _votingEscrow) public initializer {
+	function initialize(
+		address _lendingPool,
+		address _votingEscrow
+	) public initializer {
 		require(_votingEscrow != address(0), "Zero address cannot be set");
+		startTime = _roundDownToTerm(block.timestamp);
+		lendingPool = _lendingPool;
 		_ve = _votingEscrow;
 		base = Ve(_votingEscrow).token();
-		_term = 2 * WEEK;
-		maxVoteDuration = 6 * MONTH;
-		uint256 _t = _roundDownToTerm(block.timestamp);
-		startTime = _t;
-		lastTokenTime = _t + _term;
 		minter = msg.sender;
-		ltoken_func_selector = 0x1da24f3e; // scaledBalanceOf(address)
-		timestampAtDeployed = block.timestamp;
-		termTimestampAtDeployed = _t;
 	}
 
 	/**
@@ -95,7 +98,7 @@ contract Voter is Initializable {
 	 * @notice Get term index from inputted timestamp
 	 */
 	function _termIndexFromTimestamp(uint256 _t) internal view returns (uint256) {
-		return (_t - termTimestampAtDeployed) / _term;
+		return (_t - startTime) / TERM;
 	}
 
 	/**
@@ -118,7 +121,7 @@ contract Voter is Initializable {
 	function _termTimestampFromIndex(
 		uint256 _index
 	) internal view returns (uint256) {
-		return _index * _term + termTimestampAtDeployed;
+		return _index * TERM + startTime;
 	}
 
 	/**
@@ -141,50 +144,40 @@ contract Voter is Initializable {
 	 * @dev Accumulates the fee minted from last check point time to the current timestamp
 	 **/
 	function _checkpointToken() internal {
-		if (lastTokenTime > block.timestamp) return; // not distribute if initial term (can't vote)
+		if (lastCheckpoint > block.timestamp) return; // not distribute if initial term (can't vote)
 
-		uint256[] memory tokenBalance = new uint256[](tokens.length);
+		uint256[] memory tokenScaledBalance = new uint256[](tokens.length);
 		uint256[] memory toDistribute = new uint256[](tokens.length);
 
 		for (uint256 i = 0; i < tokens.length; i++) {
-			tokenBalance[i] = LToken(tokens[i]).scaledBalanceOf(address(this));
-			toDistribute[i] = tokenBalance[i] - tokenLastBalance[i];
-			tokenLastBalance[i] = tokenBalance[i];
+			LToken _lToken = LToken(tokens[i]);
+			tokenScaledBalance[i] = _lToken.scaledBalanceOf(address(this));
+			toDistribute[i] = tokenScaledBalance[i] - tokenLastScaledBalance[i];
+			tokenLastScaledBalance[i] = tokenScaledBalance[i];
 		}
 
-		uint256 t = lastTokenTime;
-		uint256 sinceLast = block.timestamp - t;
-		lastTokenTime = block.timestamp;
-		uint256 thisWeek = _roundDownToTerm(t);
-		uint256 nextWeek = 0;
+		uint256 t = lastCheckpoint;
+		uint256 secsFromLastCheckpoint = block.timestamp - lastCheckpoint;
+		lastCheckpoint = block.timestamp;
+		uint256 thisTerm = _roundDownToTerm(t);
 
-		for (uint256 j = 0; j < 50; j++) {
-			nextWeek = thisWeek + _term;
-			if (block.timestamp < nextWeek) {
-				if (sinceLast == 0 && block.timestamp == t) {
-					for (uint256 i = 0; i < tokens.length; i++) {
-						address _token = tokens[i];
-						tokensPerWeek[_token][thisWeek] += toDistribute[i];
-					}
-				} else {
-					for (uint256 i = 0; i < tokens.length; i++) {
-						address _token = tokens[i];
-						tokensPerWeek[_token][thisWeek] +=
-							(toDistribute[i] * (block.timestamp - t)) /
-							sinceLast;
-					}
-				}
-				break;
-			} else {
-				for (uint256 i = 0; i < tokens.length; i++) {
-					address _token = tokens[i];
-					tokensPerWeek[_token][thisWeek] +=
-						(toDistribute[i] * (nextWeek - t)) /
-						sinceLast;
-				}
+		for (uint256 j = 0; j < MAX_CLAIMABLE_TERM; j++) {
+			uint256 nextTerm = thisTerm + TERM;
+			bool isCurrentTerm = nextTerm > block.timestamp;
+			uint256 secsFromLastTermSinceLastTerm = isCurrentTerm
+				? block.timestamp - t
+				: nextTerm - t;
+			bool zeroDelta = secsFromLastCheckpoint == 0;
+			for (uint256 i = 0; i < tokens.length; i++) {
+				uint256 distributionAmount = zeroDelta
+					? toDistribute[i]
+					: (toDistribute[i] * secsFromLastTermSinceLastTerm) /
+						secsFromLastCheckpoint;
+				tokensPerTerm[tokens[i]][thisTerm] += distributionAmount;
 			}
-			t = nextWeek;
-			thisWeek = nextWeek;
+			if (isCurrentTerm) break;
+			t = nextTerm;
+			thisTerm = nextTerm;
 		}
 	}
 
@@ -202,13 +195,16 @@ contract Voter is Initializable {
 	function addToken(address _token) external onlyMinter {
 		require(_token != address(0), "Zero address cannot be set");
 		require(isLToken(_token), "_token is not ltoken");
-		require(!isWhitelisted[_token], "Already whitelisted");
-		isWhitelisted[_token] = true;
+		require(!_isWhitelisted(_token), "Already whitelisted");
+		_addToken(_token, 0);
 
-		tokenIndex[_token] = tokens.length + 1;
-		tokens.push(_token);
-		pools[_token] = _token;
 		emit TokenAdded(_token);
+	}
+
+	function _addToken(address _token, uint256 balance) internal {
+		tokenIndex[_token] = tokens.length + 1;
+		tokenLastScaledBalance[tokens.length] = balance;
+		tokens.push(_token);
 	}
 
 	/**
@@ -217,48 +213,84 @@ contract Voter is Initializable {
 	 **/
 	function suspendToken(address _token) external onlyMinter {
 		require(_token != address(0), "Zero address cannot be set");
-		require(isWhitelisted[_token], "Not whitelisted yet");
-		require(!isSuspended[_token], "_token is suspended");
+		require(_isWhitelisted(_token), "Not whitelisted yet");
+		require(!_isSuspended(_token), "_token is suspended");
 		uint256 arrIdx = tokenIndex[_token] - 1;
 		require(
 			arrIdx < tokens.length,
 			"unexpected error: Need that arrIdx < tokens.length"
 		);
-		uint256 vacantTokenLastBalance = tokenLastBalance[tokens.length];
+		uint256 vacantTokenLastBalance = tokenLastScaledBalance[tokens.length];
 		require(
 			vacantTokenLastBalance == 0,
 			"unexpected error: tokenLastBalance without token is greater than 0"
 		);
-		suspendedTokenLastBalance[_token] = tokenLastBalance[arrIdx]; // save current tokenLastBalance to suspendedTokenLastBalance
+		suspendedTokens.push(
+			SuspendedToken({
+				token: _token,
+				lastBalance: tokenLastScaledBalance[arrIdx]
+			})
+		);
 		for (uint256 i = arrIdx; i < tokens.length - 1; i++) {
 			address iToken = tokens[i + 1];
 			tokens[i] = iToken;
 			tokenIndex[iToken] = tokenIndex[iToken] - 1;
-			uint256 nextTLastBalance = tokenLastBalance[i + 1];
-			tokenLastBalance[i] = nextTLastBalance;
+			uint256 nextTLastBalance = tokenLastScaledBalance[i + 1];
+			tokenLastScaledBalance[i] = nextTLastBalance;
 		}
 
+		tokenLastScaledBalance[tokens.length - 1] = 0;
 		tokens.pop();
 		tokenIndex[_token] = 0;
-		pools[_token] = address(0);
-		isSuspended[_token] = true;
+	}
+
+	function isSuspended(address token) external view returns (bool) {
+		return _isSuspended(token);
+	}
+
+	function _isSuspended(address token) internal view returns (bool) {
+		for (uint256 i = 0; i < suspendedTokens.length; i++) {
+			if (suspendedTokens[i].token == token) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/**
-	 * @dev Reregister a token (ltoken) added more than once
+	 * @dev Returns whether the token (ltoken) including the suspended one has been added
+	 * @param token The token address added
+	 **/
+	function isWhitelisted(address token) external view returns (bool) {
+		return _isWhitelisted(token);
+	}
+
+	function _isWhitelisted(
+		address token
+	) internal view returns (bool whitelisted) {
+		return tokenIndex[token] > 0 || _isSuspended(token);
+	}
+
+	/**
+	 * @dev Reregister a token (ltoken) which has been suspended
 	 * @param _token The token address added
 	 **/
 	function resumeToken(address _token) external onlyMinter {
 		require(_token != address(0), "Zero address cannot be set");
-		require(isWhitelisted[_token], "Not whitelisted yet");
-		require(isSuspended[_token], "_token is not suspended");
-
-		tokenIndex[_token] = tokens.length + 1;
-		tokenLastBalance[tokens.length] = suspendedTokenLastBalance[_token];
-		suspendedTokenLastBalance[_token] = 0;
-		tokens.push(_token);
-		pools[_token] = _token;
-		isSuspended[_token] = false;
+		require(_isSuspended(_token), "Not suspended yet");
+		uint256 balance;
+		for (uint256 i = 0; i < suspendedTokens.length; i++) {
+			if (suspendedTokens[i].token != _token) {
+				continue;
+			}
+			balance = suspendedTokens[i].lastBalance;
+			for (uint256 j = i; j < suspendedTokens.length - 1; j++) {
+				suspendedTokens[j] = suspendedTokens[j + 1];
+			}
+			suspendedTokens.pop();
+			break;
+		}
+		_addToken(_token, balance);
 	}
 
 	/**
@@ -283,46 +315,40 @@ contract Voter is Initializable {
 		_reset(_lockerId);
 		_checkpointToken();
 
-		uint256 thisWeek = _calcurateBasisTermTsFromCurrentTs();
-		lastVoteTime[_lockerId] = thisWeek;
+		uint256 thisVotingTerm = _nextTermTimestamp();
+		lastVoteTime[_lockerId] = thisVotingTerm;
 
 		uint256 maxUserEpoch = Ve(_ve).userPointEpoch(_lockerId);
 		Ve.Point memory pt = Ve(_ve).userPointHistory(_lockerId, maxUserEpoch);
 
 		uint256 _totalVoteWeight = 0;
 		for (uint256 i = 0; i < tokens.length; i++) {
-			address _pool = pools[tokens[i]];
+			address token = tokens[i];
 			uint256 _weight = _weights[i];
-			weights[_lockerId][_pool] = _weight;
+			weights[_lockerId][token] = _weight;
 			_totalVoteWeight += _weight;
 		}
 
 		voteEndTime[_lockerId] = _voteEndTimestamp;
-		uint256 _maxj = (_voteEndTimestamp - thisWeek) / _term;
+		uint256 _maxj = (_voteEndTimestamp - thisVotingTerm) / TERM;
 		for (uint256 j = 0; j < _maxj + 1; j++) {
 			int256 balanceOf = int256(pt.bias) -
 				int256(pt.slope) *
-				int256(thisWeek - pt.ts);
+				int256(thisVotingTerm - pt.ts);
 			if (balanceOf <= 0) break;
 
 			for (uint256 i = 0; i < tokens.length; i++) {
-				address _pool = pools[tokens[i]];
-				if (weights[_lockerId][_pool] == 0) continue;
-				uint256 _poolWeight = (uint256(balanceOf) * weights[_lockerId][_pool]) /
-					_totalVoteWeight;
-				votes[_lockerId][_pool][thisWeek] = _poolWeight;
-				poolWeights[_pool][thisWeek] += _poolWeight;
-				votedTotalVotingWeights[_lockerId][thisWeek] += _poolWeight;
-				totalWeight[thisWeek] += _poolWeight;
+				if (weights[_lockerId][tokens[i]] == 0) continue;
+				uint256 _poolWeight = (uint256(balanceOf) *
+					weights[_lockerId][tokens[i]]) / _totalVoteWeight;
+				votes[_lockerId][tokens[i]][thisVotingTerm] = _poolWeight;
+				poolWeights[tokens[i]][thisVotingTerm] += _poolWeight;
+				votedTotalVotingWeights[_lockerId][thisVotingTerm] += _poolWeight;
+				totalWeight[thisVotingTerm] += _poolWeight;
 
-				emit Voted(msg.sender, _lockerId, _pool, _poolWeight);
+				emit Voted(msg.sender, _lockerId, tokens[i], _poolWeight);
 			}
-			thisWeek += _term;
-		}
-
-		uint256 startWeek = _calcurateBasisTermTsFromCurrentTs();
-		if (votedTotalVotingWeights[_lockerId][startWeek] > 0) {
-			Ve(_ve).voting(_lockerId);
+			thisVotingTerm += TERM;
 		}
 	}
 
@@ -339,7 +365,7 @@ contract Voter is Initializable {
 		uint256 _lockerId = Ve(_ve).ownerToId(msg.sender);
 		require(_lockerId != 0, "No lock associated with address");
 		uint256 _voteEndTimestamp = Ve(_ve).lockedEnd(_lockerId);
-		uint256 maxVoteEndTimestamp = block.timestamp + maxVoteDuration;
+		uint256 maxVoteEndTimestamp = block.timestamp + MAX_VOTE_DURATION;
 		if (_voteEndTimestamp > maxVoteEndTimestamp) {
 			_voteEndTimestamp = maxVoteEndTimestamp;
 		}
@@ -361,8 +387,12 @@ contract Voter is Initializable {
 			"Must be the same length: tokens, _weight"
 		);
 		require(
-			_voteEndTimestamp <= block.timestamp + maxVoteDuration,
+			_voteEndTimestamp <= block.timestamp + MAX_VOTE_DURATION,
 			"Over max vote end timestamp"
+		);
+		require(
+			_voteEndTimestamp > _nextTermTimestamp(),
+			"Can't vote for the past"
 		);
 		uint256 _lockerId = Ve(_ve).ownerToId(msg.sender);
 		require(_lockerId != 0, "No lock associated with address");
@@ -374,26 +404,25 @@ contract Voter is Initializable {
 	 * @param _lockerId The locker ID
 	 **/
 	function _reset(uint256 _lockerId) internal {
-		uint256 thisWeek = _calcurateBasisTermTsFromCurrentTs();
-		lastVoteTime[_lockerId] = thisWeek;
+		uint256 thisTerm = _nextTermTimestamp();
+		lastVoteTime[_lockerId] = thisTerm;
 
 		for (uint256 j = 0; j < 105; j++) {
 			uint256 _totalWeight = 0;
 
 			for (uint256 i = 0; i < tokens.length; i++) {
-				address _pool = pools[tokens[i]];
-				uint256 _poolWeight = votes[_lockerId][_pool][thisWeek];
+				uint256 _poolWeight = votes[_lockerId][tokens[i]][thisTerm];
 				if (_poolWeight == 0) continue;
-				votes[_lockerId][_pool][thisWeek] -= _poolWeight;
-				poolWeights[_pool][thisWeek] -= _poolWeight;
-				votedTotalVotingWeights[_lockerId][thisWeek] -= _poolWeight;
-				totalWeight[thisWeek] -= _poolWeight;
+				votes[_lockerId][tokens[i]][thisTerm] -= _poolWeight;
+				poolWeights[tokens[i]][thisTerm] -= _poolWeight;
+				votedTotalVotingWeights[_lockerId][thisTerm] -= _poolWeight;
+				totalWeight[thisTerm] -= _poolWeight;
 				_totalWeight += _poolWeight;
 
-				emit Abstained(_lockerId, _pool, _poolWeight);
+				emit Abstained(_lockerId, tokens[i], _poolWeight);
 			}
 			if (_totalWeight == 0) break;
-			thisWeek += _term;
+			thisTerm += TERM;
 		}
 	}
 
@@ -406,11 +435,9 @@ contract Voter is Initializable {
 
 		// reset user's weights because not reset in #_reset
 		for (uint256 i = 0; i < tokens.length; i++) {
-			address _pool = pools[tokens[i]];
-			weights[_lockerId][_pool] = 0;
+			weights[_lockerId][tokens[i]] = 0;
 		}
 		_reset(_lockerId);
-		Ve(_ve).abstain(_lockerId);
 	}
 
 	/**
@@ -424,8 +451,7 @@ contract Voter is Initializable {
 		// copy from last user's weights
 		uint256[] memory _weights = new uint256[](tokens.length);
 		for (uint256 i = 0; i < tokens.length; i++) {
-			address _pool = pools[tokens[i]];
-			_weights[i] = weights[_lockerId][_pool];
+			_weights[i] = weights[_lockerId][tokens[i]];
 		}
 		_vote(_lockerId, _weights, voteEndTime[_lockerId]);
 	}
@@ -435,16 +461,28 @@ contract Voter is Initializable {
 	 * the total vote weight in each pool and claims the assigned fees
 	 * @param _lockerId The locker ID
 	 **/
-	function _claim(uint256 _lockerId) internal returns (uint256[] memory) {
+	function _claim(
+		uint256 _lockerId
+	) internal returns (ClaimableAmount[] memory) {
 		_checkpointToken();
 
-		(uint256 _lastClaimTime, uint256[] memory userDistribute) = _claimable(
-			_lockerId
-		);
+		(
+			uint256 _lastClaimTime,
+			ClaimableAmount[] memory userDistribute
+		) = _claimable(_lockerId);
 		lastClaimTime[_lockerId] = _lastClaimTime;
-		emit Claimed(_lockerId, userDistribute);
+		uint256[] memory userDistributeAmount = new uint256[](tokens.length);
+		for (uint256 i = 0; i < tokens.length; i++) {
+			userDistributeAmount[i] = userDistribute[i].amount;
+		}
+		emit Claimed(_lockerId, userDistributeAmount);
 
 		return userDistribute;
+	}
+
+	struct ClaimableAmount {
+		uint256 amount;
+		uint256 scaledAmount;
 	}
 
 	/**
@@ -454,33 +492,41 @@ contract Voter is Initializable {
 	 **/
 	function _claimable(
 		uint256 _lockerId
-	) internal view returns (uint256, uint256[] memory) {
-		uint256[] memory userDistribute = new uint256[](tokens.length);
-
+	) internal view returns (uint256, ClaimableAmount[] memory) {
 		uint256 t = lastClaimTime[_lockerId];
 		if (t == 0) t = startTime;
-		uint256 thisWeek = _roundDownToTerm(t);
-		uint256 roundedLastTokenTime = _roundDownToTerm(lastTokenTime);
+		uint256 thisTerm = _roundDownToTerm(t);
+		uint256 roundedLastTokenTime = _roundDownToTerm(lastCheckpoint);
+		uint256[] memory indexes = new uint256[](tokens.length);
+		for (uint256 i = 0; i < tokens.length; i++) {
+			indexes[i] = ILendingPool(lendingPool).getReserveNormalizedIncome(
+				LToken(tokens[i]).UNDERLYING_ASSET_ADDRESS()
+			);
+		}
+		ClaimableAmount[] memory claimableAmounts = new ClaimableAmount[](
+			tokens.length
+		);
 
-		for (uint256 j = 0; j < 105; j++) {
-			if (thisWeek >= roundedLastTokenTime) {
+		for (uint256 j = 0; j < MAX_CLAIMABLE_TERM; j++) {
+			if (thisTerm >= roundedLastTokenTime) {
 				break;
 			}
 
 			for (uint256 i = 0; i < tokens.length; i++) {
 				address _token = tokens[i];
-				address _pool = pools[_token];
-				if (poolWeights[_pool][thisWeek] > 0) {
-					userDistribute[i] +=
-						(tokensPerWeek[_token][thisWeek] *
-							votes[_lockerId][_pool][thisWeek]) /
-						poolWeights[_pool][thisWeek];
-				}
+				if (poolWeights[_token][thisTerm] == 0) continue;
+				uint256 distributionTotal = tokensPerTerm[_token][thisTerm];
+				uint256 userVote = votes[_lockerId][_token][thisTerm];
+				uint256 totalVotes = poolWeights[_token][thisTerm];
+				uint256 scaledDistribute = (distributionTotal * userVote) / totalVotes;
+				uint256 amount = scaledDistribute.rayMul(indexes[i]);
+				claimableAmounts[i].amount += amount;
+				claimableAmounts[i].scaledAmount += scaledDistribute;
 			}
-			thisWeek += _term;
+			thisTerm += TERM;
 		}
 
-		return (thisWeek, userDistribute);
+		return (thisTerm, claimableAmounts);
 	}
 
 	/**
@@ -491,9 +537,12 @@ contract Voter is Initializable {
 		uint256 _lockerId = Ve(_ve).ownerToId(_for);
 		require(_lockerId != 0, "No lock associated with address");
 
-		uint256[] memory scaledAmount = new uint256[](tokens.length);
-		(, scaledAmount) = _claimable(_lockerId);
-		return scaledAmount;
+		uint256[] memory claimables = new uint256[](tokens.length);
+		(, ClaimableAmount[] memory claimableAmounts) = _claimable(_lockerId);
+		for (uint256 i = 0; i < tokens.length; i++) {
+			claimables[i] = claimableAmounts[i].amount;
+		}
+		return claimables;
 	}
 
 	/**
@@ -511,19 +560,18 @@ contract Voter is Initializable {
 		uint256 _lockerId = Ve(_ve).ownerToId(_owner);
 		require(_lockerId != 0, "No lock associated with address");
 
-		uint256[] memory scaledAmount = new uint256[](tokens.length);
-		scaledAmount = _claim(_lockerId);
-
+		ClaimableAmount[] memory claimAmount = _claim(_lockerId);
+		uint256[] memory claimAmounts = new uint256[](tokens.length);
 		for (uint256 i = 0; i < tokens.length; i++) {
-			if (scaledAmount[i] != 0) {
-				require(
-					LToken(tokens[i]).transfer(_owner, scaledAmount[i]),
-					"fail to transfer ltoken"
-				);
-				tokenLastBalance[i] -= scaledAmount[i];
-			}
+			if (claimAmount[i].amount == 0) continue;
+			tokenLastScaledBalance[i] -= claimAmount[i].scaledAmount;
+			claimAmounts[i] = claimAmount[i].amount;
+			require(
+				LToken(tokens[i]).transfer(_owner, claimAmount[i].amount),
+				"fail to transfer ltoken"
+			);
 		}
-		return scaledAmount;
+		return claimAmounts;
 	}
 
 	/**
@@ -532,25 +580,18 @@ contract Voter is Initializable {
 	 **/
 	function isLToken(address token) internal returns (bool) {
 		if (token.code.length == 0) return false; // check eoa address
-		bytes memory data = abi.encodeWithSelector(
-			ltoken_func_selector,
-			address(this)
+		(bool success, ) = token.call(
+			abi.encodeWithSelector(LTOKEN_FUNC_SELECTOR, address(this))
 		);
-		(bool success, ) = token.call(data);
 		return success;
 	}
 
 	/**
-	 * @notice Calculate this term from block.timestamp
-	 * @dev about minus 1: include the beginning of next term in this term
-	 * @return timestamp of this term
+	 * @notice Get the next term timestamp
+	 * @return timestamp of next term
 	 **/
-	function _calcurateBasisTermTsFromCurrentTs()
-		internal
-		view
-		returns (uint256)
-	{
-		return _roundDownToTerm(block.timestamp - 1) + _term;
+	function _nextTermTimestamp() internal view returns (uint256) {
+		return _roundDownToTerm(block.timestamp - 1) + TERM;
 	}
 
 	/**
@@ -558,7 +599,7 @@ contract Voter is Initializable {
 	 * @param _ts timestamp
 	 * @return timestamp of this term
 	 **/
-	function _roundDownToTerm(uint256 _ts) internal view returns (uint256) {
-		return (_ts / _term) * _term;
+	function _roundDownToTerm(uint256 _ts) internal pure returns (uint256) {
+		return (_ts / TERM) * TERM;
 	}
 }

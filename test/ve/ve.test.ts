@@ -37,7 +37,11 @@ describe('ve', () => {
     ])) as VotingEscrow
     await ve.deployTransaction.wait()
   })
-
+  it('reverts if the deposit amount will overflow', async () => {
+    const int128MaxPlusOne = '170141183460469231731687303715884105728'
+    await oal.approve(ve.address, int128MaxPlusOne)
+    await expect(ve.createLock(int128MaxPlusOne, YEAR)).to.be.revertedWith("Overflow on locked.amount")
+  })
   it('Creates new lock with 50 OAL for MAXTIME: The balance of user1 should increases to 1 and the balance of the VE contract should increases to 50', async () => {
     await oal.approve(ve.address, parseEther('50'))
     const lockDuration = 2 * YEAR // 2 years
@@ -212,4 +216,6 @@ describe('ve', () => {
     expect(await ve.ownerOf(1)).to.equal(ethers.constants.AddressZero)
     expect((await ve.ownerToId(user1.address)).toString()).to.equal('0')
   })
+
+
 })
